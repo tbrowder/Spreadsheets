@@ -28,6 +28,18 @@ well-tested Perl modules as well as a Raku module that wraps the
 Its unique strength is a common set of classes to make spreadsheet
 data use easy regardless of the file format being used.
 
+=head2 Supported formats
+
+=begin table
+Read | Write | Notes
+-----+-------+------
+CSV  | CSV   | uses `libcsv`
+XLS  | XLS   |
+XLSX | XLSX  |
+ODS  | ODS   |
+PSV  | PSV   |
+=end table
+
 =head1 AUTHOR
 
 Tom Browder <tom.browder@gmail.com>
