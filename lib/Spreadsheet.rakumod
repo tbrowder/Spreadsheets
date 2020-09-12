@@ -1,6 +1,5 @@
 unit class Spreadsheet:ver<0.0.1>:auth<cpan:TBROWDER>;
 
-
 =begin pod
 
 =head1 NAME
@@ -21,7 +20,13 @@ $book.write: :file<myfile.xlsx>;
 
 =head1 DESCRIPTION
 
-Spreadsheet is ...
+Spreadsheet is intended to be a reasonably universal spreadsheet
+reader and writer for the formats shown below. It relies on some
+well-tested Perl modules as well as a Raku module that wraps the
+*libcsv* library available on Debian and other Linux distributions.
+
+Its unique strength is a common set of classes to make spreadsheet
+data use easy regardless of the file format being used.
 
 =head1 AUTHOR
 
