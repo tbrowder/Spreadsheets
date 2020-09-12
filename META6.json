@@ -1,0 +1,20 @@
+{
+  "auth" : "cpan:TBROWDER",
+  "authors" : [
+    "Tom Browder"
+  ],
+  "build-depends" : [ ],
+  "depends" : [ ],
+  "description" : "A universal spreadsheet reader/writer",
+  "license" : "Artistic-2.0",
+  "name" : "Spreadsheet",
+  "perl" : "6.d",
+  "provides" : {
+    "Spreadsheet" : "lib/Spreadsheet.rakumod"
+  },
+  "resources" : [ ],
+  "source-url" : "",
+  "tags" : [ ],
+  "test-depends" : [ ],
+  "version" : "0.0.1"
+}
