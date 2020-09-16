@@ -21,6 +21,7 @@ if !@*ARGS.elems {
         ++$n;
         say "  $n. {$f.IO.basename}";
     }
+    say();
     exit;
 }
 
@@ -36,11 +37,23 @@ for @*ARGS {
 }
 
 my $book = ReadData @f[$n];
+my $ne = $book.elems;
+say "\$book has $ne elements indexed from zero";
 
 my %h = $book[0];
-say "Dumping hash in \$book[0]:";
+say "Dumping meta hash in \$book[0]:";
 dump-hash %h;
-#exit;
+say "\$book has $ne elements indexed from zero";
+
+my $idx = 0;
+for $book[1..*] -> $arr {
+    ++$idx;
+    my $n = $arr.elems;
+    say "\$book[$idx] has $n elements";
+}
+
+exit;
+
 
 %h = $book[1];
 say "Dumping hash in \$book[1]:";
