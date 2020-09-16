@@ -36,6 +36,58 @@ for @*ARGS {
 }
 
 my $book = ReadData @f[$n];
-say $book.gist;
-say "The above data were in file '@f[$n]'";
+
+my %h = $book[0];
+say "Dumping hash in \$book[0]:";
+dump-hash %h;
+#exit;
+
+%h = $book[1];
+say "Dumping hash in \$book[1]:";
+dump-hash %h;
+
+#### subroutines ####
+sub dump-array(@a, :$level is copy = 0, :$debug) {
+    my $sp = $level ?? '  ' x $level !! '';
+    for @a.kv -> $i, $v {
+        my $t = $v.^name;
+        say "$sp index $i, value type: $t";
+        if $t ~~ /Hash/ {
+            dump-hash $v, :level(++$level), :$debug;
+        }
+        elsif $t ~~ /Array/ {
+            # we may have an undef array
+            my $val = $v // '';
+            if $val {
+                dump-array $v, :level(++$level), :$debug;
+            }
+            else {
+                say "$sp   (undef array)";
+            }
+        }
+        else {
+            my $s = $v // '';
+            say "$sp   value: '$s'";
+        }
+    }
+}
+
+sub dump-hash(%h, :$level is copy = 0, :$debug) {
+    my $sp = $level ?? '  ' x $level !! '';
+    for %h.keys.sort -> $k {
+        my $v = %h{$k} // '';
+        my $t = $v.^name;
+        say "$sp key: $k, value type: $t";
+        if $t ~~ /Hash/ {
+            dump-hash $v, :level(++$level), :$debug;
+        }
+        elsif $t ~~ /Array/ {
+            dump-array $v, :level(++$level), :$debug;
+        }
+        else {
+            my $s = $v // '';
+            say "$sp   value: '$s'";
+        }
+    }
+}
 
