@@ -13,7 +13,8 @@ if !@*ARGS.elems {
     say qq:to/HERE/;
     Usage: {$*PROGRAM.basename} 1|2|3|4 
     
-    Dumps the data from the selected file number:
+    Uses the Perl  module Spreadsheet::Read and 
+    dumps the data from the selected file number:
     HERE
     my $n = 0;
     for @f -> $f {

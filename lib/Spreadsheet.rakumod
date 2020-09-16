@@ -169,6 +169,6 @@ method read(:$file!,
 
     # use Spreadsheet::Read to get all the data from the 
     # input file in its standard data format
-    my @book = Spreadsheet::Read.new($file);
-    say @book[0].gist;
+    my $data = ReadData $file;
+    say $data.gist;
 }
