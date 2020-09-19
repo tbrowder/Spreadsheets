@@ -1,5 +1,7 @@
 #!/usr/bin/env raku
 
+use Spreadsheet::Read:from<Perl5>;
+
 my @f =
 "../t/data/sample-security-sales.xlsx",
 "../t/data/sample-security-sales.xls",
@@ -28,21 +30,21 @@ class Workbook {
 class WorkbookSet {
     #| an array of immutable input Workbook objects that can be written again under a new name
     has Workbook @.sources;
-    has $.last-source-index = -1;
+    has $.last-source-index = -1; # increment as source workbooks are added
 
     #| a hash of info on files read or written and their associated Workbook locations
-    has %.file;
+    has %.files;
 
     #| an array of Workbook objects capable of being written
     has Workbook @.products;
-    has $.last-product-index = -1;
+    has $.last-product-index = -1; # increment as product workbooks are added
 
     method read(:$file!, :$debug) {
         # make sure the file isn't already in the hash
         my $fnam = $file.IO.basename;
         my $path = $file.IO.absolute;
 
-        if %.file{$fnam}:exists {
+        if %.files{$fnam}:exists {
             note "WARNING: File '$file' has already been read.";
             return;
         }
@@ -53,7 +55,7 @@ class WorkbookSet {
 
         # figure out the correct workbook object to use
         %.files{$fnam}<path>         = $path;
-        %.files{$fnam}<source-index> = ++$.last-source-index;
+        %.files{$fnam}<source-index> = ++$!last-source-index;
         my $wb = Workbook.new;
         @.sources.push: $wb;
         collect-file-data(:$path, :$wb, :$debug);
@@ -82,8 +84,19 @@ class Row {
 }
 class Sheet {
     has Row @.row;      # an array of Row objects
-    has %.colrow is rw; # a hash indexed by Excel A1 label (col A, row 1)
+    has %.colrow; # a hash indexed by Excel A1 label (col A, row 1)
     
+    # check for and handle Excel colrow ids
+    method add-colrow-hash($k, $v) {
+        %.colrow; # a hash indexed by Excel A1 label (col A, row 1)
+        if %.colrow{$k}:exists {
+            note "WARNING: Excel A1 id '$k' is a duplicate";
+        }
+        else {
+            %!colrow{$k} = $v;
+        }
+    }
+
     method dump-colrows {
         for %.colrow.keys.sort -> $k {
             my $v = %.colrow{$k};
@@ -95,8 +108,6 @@ class Sheet {
         # returns a copy of this Sheet object
     }
 }
-
-use Spreadsheet::Read:from<Perl5>;
 
 my $sheet = 0;
 if !@*ARGS.elems {
@@ -134,6 +145,13 @@ for @*ARGS {
 }
 
 my $ifil = @f[$n];
+
+my $c = WorkbookSet.new;
+$c.read: :file($ifil);
+
+exit;
+
+
 #if $sheet > 1 and $n != 4 {
 if $sheet > 1 and $ifil ~~ /:i csv/ {
     say "FATAL: Only one sheet in a csv file";
@@ -229,8 +247,10 @@ sub dump-hash(%h, :$level is copy = 0, :$debug) {
             }
             else {
                 note "  DEBUG: with value: '$v'" if $debug;
-                # need to confirm sheet num and its existance
+
+                # need to confirm sheet num and its existence
                 my $s = $wb.sheet[$sheet-1];
+
                 # insert key and val in the sheet's %colrow hash
                 $s.colrow{$k} = $v;
             }
@@ -264,12 +284,12 @@ sub collect-file-data(:$path, Workbook :$wb!, :$debug) {
     my $pbook = ReadData $path; # arrray of hashes
     my $ne = $pbook.elems;
     say "\$book has $ne elements indexed from zero" if $debug;
-    my %h = $book[0];
+    my %h = $pbook[0];
     collect-book-data %h, :$wb;
 
     # get all the sheet data
     for 1..^$ne -> $index {
-        %h    = $book[$index];
+        %h    = $pbook[$index];
         my $s = Sheet.new;
         $wb.sheet.push: $s;
         collect-sheet-data %h, :$index, :$s, :$debug;
@@ -279,7 +299,20 @@ sub collect-file-data(:$path, Workbook :$wb!, :$debug) {
 sub collect-book-data(%h, Workbook :$wb!, :$debug) {
     # Given the zeroth hash from Spreadsheet::Read and a 
     # Workbook object, collect the data for the workbook.
+    constant %known-keys = set <
+        error
+        parser
+        parsers
+        quote
+        sepchar
+        sheet
+        sheets
+        type
+        version
+    >;
+
     for %h.kv -> $k, $v {
+        note "WARNING: Unknown key '$k' in workbook meta data" unless %known-keys{$k}:exists;
     }
 }
 
@@ -287,7 +320,28 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
     # Given the sheet's original index, i, the ith hash 
     # from Spreadsheet::Read and a Sheet object, collect 
     # the data for the sheet.
+    constant %known-keys = set <
+        active
+        attr
+        cell
+        indx
+        label
+        maxcol
+        maxrow
+        merged
+        mincol
+        minrow
+        parser
+    >;
+
     for %h.kv -> $k, $v {
+        if $k ~~ /^ (<[A..Z]>+) (<[1..9]> <[0..9]>?) $/ {
+            # check for and handle Excel colrow ids
+            $s.add-colrow-hash: $k, $v;
+            next;
+        }
+
+        note "WARNING: Unknown key '$k' in spreadsheet data" unless %known-keys{$k}:exists;
     }
 }
 
