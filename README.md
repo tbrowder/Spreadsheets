@@ -1,16 +1,16 @@
-[![Actions Status](https://github.com/tbrowder/Spreadsheet/workflows/test/badge.svg)](https://github.com/tbrowder/Spreadsheet/actions)
+[![Actions Status](https://github.com/tbrowder/Spreadsheets/workflows/test/badge.svg)](https://github.com/tbrowder/Spreadsheets/actions)
 
 NAME
 ====
 
-Spreadsheet - A universal spreadsheet reader/writer
+Spreadsheet - A universal, multiple spreadsheet reader/writer
 
 SYNOPSIS
 ========
 
 ```raku
 use Spreadsheet;
-my $book = Spreadsheet.new;
+my $book = Spreadsheets.new;
 $book.read: :file<myfile.cvs>, :has-header;
 $book.write: :file<myfile.xlsx>;
 ```
@@ -34,7 +34,7 @@ Supported formats
 </tbody>
 </table>
 
-Note: Formats marked with an asterisk are not yet implemented (NYI).
+Note: Formats marked with an asterisk are not yet implemented (NYI). The author does not intend to expend any effort on writing those formats unless he gets a Pull Request (PR) which provides such a capability.
 
 System requirements
 -------------------
@@ -44,14 +44,14 @@ System requirements
 <th>Perl modules</th> <th>Debian package</th> <th>Notes</th>
 </tr></thead>
 <tbody>
-<tr> <td>Spreadsheet::Read</td> <td>libspreadsheet-read-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ParseExcel</td> <td>libspreadsheet-parseexcel-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ParseXLSX</td> <td>libspreadsheet-parsexlsx-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ReadSXC</td> <td>libspreadsheet-readsxc-perl</td> <td></td> </tr> <tr> <td>Excel::Writer::XSLX</td> <td>libexcel-writer-xlsx-perl</td> <td></td> </tr> <tr> <td>Text::CSV</td> <td>libtext-csv-perl</td> <td></td> </tr>
+<tr> <td>Spreadsheet::Read</td> <td>libspreadsheet-read-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ParseExcel</td> <td>libspreadsheet-parseexcel-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ParseXLSX</td> <td>libspreadsheet-parsexlsx-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ReadSXC</td> <td>libspreadsheet-readsxc-perl</td> <td></td> </tr> <tr> <td>Text::CSV</td> <td>libtext-csv-perl</td> <td></td> </tr> <tr> <td>Excel::Writer::XSLX</td> <td>libexcel-writer-xlsx-perl</td> <td></td> </tr>
 </tbody>
 </table>
 
 Design
 ------
 
-This module is designed to treat data as a two-dimensional array of data cells (row, column; zero indexed) represented by a spreadsheet object. Multiple spreadsheets can be children of a workbook object.
+This module is designed to treat data as a two-dimensional array of data cells (row, column; zero indexed), commonly referred to as a 'spreadsheet', represented by a Sheet object. Multiple spreadsheets can be children of a Workbook object which is modeled after an Excel XLSX file (known as a workbook). Finally, a WorkbookSet object can have multiple Workbook objects as children.
 
 A spreadsheet may have the first row defined as a header row with unique identifiers as keys to a hash of each column.
 
