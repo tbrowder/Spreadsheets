@@ -12,16 +12,36 @@ my @f =
 class WorkbookSet {...}
 class Sheet {...}
 class Workbook {
-    has $.quote   = ''; # used for csv
-    has $.sepchar = ''; # used for csv
-    has $.error   = '';
-    has $.parser;      # name of parser used
-    has @.parsers;     # array of parser hashes, keys: name, type, version
-    has $.num-sheets;
-    has $.type;        # of the parser used: xlsx, xls, csv, etc.
-    has $.version;     # of the parser used
-    has %.sheets;      # key: sheet name, value: index 1..N of N sheets
-    has Sheet @.sheet; # array of Sheet objects
+    # keys in the meta hash (book[0])
+    #   with string values
+    has $.quote   is rw = ''; # used for csv
+    has $.sepchar is rw = ''; # used for csv
+    has $.error   is rw = '';
+    has $.sheets  is rw;      # number of sheets
+
+    has $.parser  is rw;      # name of parser used
+    has $.type    is rw;      # of the parser used: xlsx, xls, csv, etc.
+    has $.version is rw;      # of the parser used
+    #   with array or hash values
+    has %.sheet   is rw;      # key: sheet name, value: index 1..N of N sheets
+
+    # the following appears to be redundant and will be ignored on read iff it
+    # only contains one element 
+    #has @.parsers is rw;      # array of parser pairs hashes, keys: name, type, version
+
+    # convenience attrs
+    has Sheet @.Sheet; # array of Sheet objects
+    has $.basename = '';
+    has $.path     = '';
+
+    method dump(:$index!, :$debug) {
+        say "DEBUG: dumping workbook index $index, file basename: {$.basename}";
+        say "  == \%.sheet hash:";
+        for %.sheet.keys.sort -> $k {
+            my $v = %.sheet{$k};
+            say "    '$k' => '$v'";
+        }
+    }
 
     method clone {
         # returns a copy of this Book object
@@ -39,12 +59,30 @@ class WorkbookSet {
     has Workbook @.products;
     has $.last-product-index = -1; # increment as product workbooks are added
 
+    method dump(:$debug) {
+        my $ns = @.sources.elems;
+        my $np = @.products.elems;
+        my $s = $ns > 1 ?? 's' !! '';
+        say "DEBUG: dumping WorkbookSet containing:";  
+        say "          $ns source workbook$s...";  
+        for @.sources.kv -> $i, $wb {
+            $wb.dump: :index($i), :$debug;
+        }
+        $s = $np > 1 ?? 's' !! '';
+        if $np {
+            say "          and $np product workbook$s...";  
+        }
+        else {
+            say "          and no product workbooks.";  
+        }
+    }
+
     method read(:$file!, :$debug) {
         # make sure the file isn't already in the hash
-        my $fnam = $file.IO.basename;
-        my $path = $file.IO.absolute;
+        my $basename = $file.IO.basename;
+        my $path     = $file.IO.absolute;
 
-        if %.files{$fnam}:exists {
+        if %.files{$basename}:exists {
             note "WARNING: File '$file' has already been read.";
             return;
         }
@@ -54,9 +92,9 @@ class WorkbookSet {
         }
 
         # figure out the correct workbook object to use
-        %.files{$fnam}<path>         = $path;
-        %.files{$fnam}<source-index> = ++$!last-source-index;
-        my $wb = Workbook.new;
+        %.files{$basename}<path>         = $path;
+        %.files{$basename}<source-index> = ++$!last-source-index;
+        my $wb = Workbook.new: :$basename, :$path;
         @.sources.push: $wb;
         collect-file-data(:$path, :$wb, :$debug);
     }
@@ -147,8 +185,10 @@ for @*ARGS {
 my $ifil = @f[$n];
 
 my $c = WorkbookSet.new;
-$c.read: :file($ifil);
-
+$c.read: :file($ifil), :debug;
+if $debug {
+    $c.dump;
+}
 exit;
 
 
@@ -281,39 +321,141 @@ sub dump-hash(%h, :$level is copy = 0, :$debug) {
 }
 
 sub collect-file-data(:$path, Workbook :$wb!, :$debug) {
-    my $pbook = ReadData $path; # arrray of hashes
+    my $pbook = ReadData $path; # array of hashes
     my $ne = $pbook.elems;
     say "\$book has $ne elements indexed from zero" if $debug;
     my %h = $pbook[0];
-    collect-book-data %h, :$wb;
+    collect-book-data %h, :$wb, :$debug;
 
     # get all the sheet data
     for 1..^$ne -> $index {
         %h    = $pbook[$index];
         my $s = Sheet.new;
-        $wb.sheet.push: $s;
+        $wb.Sheet.push: $s;
         collect-sheet-data %h, :$index, :$s, :$debug;
     }
 }
 
 sub collect-book-data(%h, Workbook :$wb!, :$debug) {
     # Given the zeroth hash from Spreadsheet::Read and a 
-    # Workbook object, collect the data for the workbook.
+    # Workbook object, collect the meta data for the workbook.
     constant %known-keys = set <
         error
-        parser
-        parsers
         quote
         sepchar
-        sheet
         sheets
+
+        parser
         type
         version
+
+        parsers
+        sheet
     >;
 
+    say "DEBUG: collecting book meta data..." if $debug;
     for %h.kv -> $k, $v {
+        say "  found key '$k'..." if $debug;
         note "WARNING: Unknown key '$k' in workbook meta data" unless %known-keys{$k}:exists;
+        if $k eq 'error' {
+            $wb.error = $v;
+        }
+        elsif $k eq 'parser' {
+            $wb.parser = $v;
+        }
+        elsif $k eq 'quote' {
+            $wb.quote = $v;
+        }
+        elsif $k eq 'sepchar' {
+            $wb.sepchar = $v;
+        }
+        elsif $k eq 'sheets' {
+            $wb.sheets = $v;
+        }
+        elsif $k eq 'type' {
+            $wb.type = $v;
+        }
+        elsif $k eq 'version' {
+            $wb.version = $v;
+        }
+        # special handling required
+        elsif $k eq 'sheet' {
+            $wb.sheet = get-wb-sheet-hash $v;
+        }
+        # special handling required
+        elsif $k eq 'parsers' {
+            # This appears to be redundant and will
+            # be ignored as long as it only contains
+            # one element. The one element is an anonymous
+            # hash of three key/values (parser, type, version), all
+            # which are already single-value attributes.
+            my $ne = $v.elems;
+            if $ne != 1 {
+                die "FATAL: Expected one element but got $ne elements";
+            }
+        }
     }
+
+    # ensure we have the parser, type, and version values as a sanity
+    # check on our understanding of the read data format
+    my $err = 0;
+    if not $wb.parser {
+        ++$err;
+        note "WARNING: no 'parser' found in meta data";
+    }
+    if not $wb.type {
+        ++$err;
+        note "WARNING: no 'type' found in meta data";
+    }
+    if not $wb.version {
+        ++$err;
+        note "WARNING: no 'version' found in meta data";
+    }
+    if $err {
+        note "POSSIBLE BAD READ OF FILE '$wb.path' PLEASE FILE AN ISSUE";
+    }
+
+
+}
+
+sub get-wb-parsers-array($v) {
+    my $t = $v.^name; # expect Perl5 Array
+    my @a;
+    my $val = $v // '';
+    
+    if $t ~~ /Array/ {
+        if $val {
+           for $val -> $v {
+               my $t = $v.^name; # expect Perl5 Hash
+               my $ne = $v.elems;
+               note "DEBUG: element of parsers array is type: '$t'";
+               note "       it has $ne element(s)";
+               my $V = $v // '';
+               @a.push: $V;
+           }
+        }         
+        else {
+            note "array is empty or undefined";
+        }
+        return @a;
+    }
+    die "FATAL: Unexpected non-array type '$t'";
+}
+
+sub get-wb-sheet-hash($v) {
+    my $t = $v.^name; # expect Perl5 Hash
+    my %h;
+    my $val = $v // '';
+    
+    if $t ~~ /Hash/ {
+        if $val {
+           for $val.kv -> $k, $v {
+               %h{$k} = $v;
+           }
+        }         
+        return %h;
+    }
+    die "FATAL: Unexpected non-hash type '$t'";
 }
 
 sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
