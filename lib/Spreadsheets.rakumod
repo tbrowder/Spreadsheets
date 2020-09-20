@@ -1,17 +1,17 @@
-unit class Spreadsheet:ver<0.0.1>:auth<cpan:TBROWDER>;
+unit class Spreadsheets:ver<0.0.1>:auth<cpan:TBROWDER>;
 
 =begin pod
 
 =head1 NAME
 
-Spreadsheet - A universal spreadsheet reader/writer
+Spreadsheet - A universal, multiple spreadsheet reader/writer
 
 =head1 SYNOPSIS
 
 =begin code :lang<raku>
 
 use Spreadsheet;
-my $book = Spreadsheet.new;
+my $book = Spreadsheets.new;
 $book.read: :file<myfile.cvs>, :has-header;
 $book.write: :file<myfile.xlsx>;
 
@@ -41,7 +41,10 @@ XLSX | XLSX  |
 =end table
 
 Note: Formats marked with an asterisk are not yet
-implemented (NYI).
+implemented (NYI). The author does not intend to
+expend any effort on writing those formats unless
+he gets a Pull Request (PR) which provides such
+a capability.
 
 =head2 System requirements
 
@@ -52,16 +55,19 @@ Spreadsheet::Read             | libspreadsheet-read-perl
 Spreadsheet::ParseExcel       | libspreadsheet-parseexcel-perl
 Spreadsheet::ParseXLSX        | libspreadsheet-parsexlsx-perl
 Spreadsheet::ReadSXC          | libspreadsheet-readsxc-perl
-Excel::Writer::XSLX           | libexcel-writer-xlsx-perl
 Text::CSV                     | libtext-csv-perl
+Excel::Writer::XSLX           | libexcel-writer-xlsx-perl
 =end table
 
 =head2 Design
 
 This module is designed to treat data as a two-dimensional
-array of data cells (row, column; zero indexed)
-represented by a spreadsheet object. Multiple
-spreadsheets can be children of a workbook object.
+array of data cells (row, column; zero indexed),
+commonly referred to as a 'spreadsheet', represented by a Sheet object. Multiple
+spreadsheets can be children of a Workbook object which
+is modeled after an Excel XLSX file (known as a workbook).
+Finally, a WorkbookSet object can have multiple Workbook
+objects as children.
 
 A spreadsheet may have the first row defined as a
 header row with unique identifiers as keys to a
@@ -159,7 +165,9 @@ This library is free software; you can redistribute it and/or modify it under th
 
 =end pod
 
-has %!data;
+use Data::Dump;
+
+has %.meta;
 
 method read(:$file!, 
             :$debug, 
@@ -170,5 +178,46 @@ method read(:$file!,
     # use Spreadsheet::Read to get all the data from the 
     # input file in its standard data format
     my $data = ReadData $file;
-    say $data.gist;
+    #my @data = ReadData $file;
+
+    # break down the data into desired pieces for the
+    # class interfaces
+    %.meta = $data.[0];
+    #%.meta = @data.shift;
+
+    if 1 or $debug {
+        #say Dump($data, :no-postfix, :skip-methods);
+        #say $data.gist;
+        #say %.meta.gist;
+        say "DEBUG: dumping meta data:";
+        for %.meta.keys.sort -> $k {
+            my $v = %.meta{$k} // '';
+
+            # skip some stuff
+            next if $k ~~ /Spreadsheet/;
+            next if $v ~~ /Spreadsheet/;
+
+            print "  $k => ";
+            my $typ = $v.^name; #'unknown';
+            print "[typ: $typ] ";
+            if $typ ~~ List {
+                print "(List)"
+            }
+            elsif $typ ~~ Hash {
+                print "(Hash)"
+            }
+            elsif $typ ~~ Array {
+                print "(Array)"
+            }
+            elsif $v ~~ Str {
+                print "(Str)"
+            }
+            else {
+                print "'$v'"
+            }
+            say();
+
+        }
+
+    }
 }

@@ -5,15 +5,15 @@
   ],
   "build-depends" : [ ],
   "depends" : [ ],
-  "description" : "A universal spreadsheet reader/writer",
+  "description" : "A universal, multiple spreadsheet reader/writer",
   "license" : "Artistic-2.0",
-  "name" : "Spreadsheet",
+  "name" : "Spreadsheets",
   "perl" : "6.d",
   "provides" : {
-    "Spreadsheet" : "lib/Spreadsheet.rakumod"
+    "Spreadsheets" : "lib/Spreadsheets.rakumod"
   },
   "resources" : [ ],
-  "source-url" : "https://github.com/tbrowder/Spreadsheet.git",
+  "source-url" : "https://github.com/tbrowder/Spreadsheets.git",
   "tags" : [ ],
   "test-depends" : [ ],
   "version" : "0.0.1"

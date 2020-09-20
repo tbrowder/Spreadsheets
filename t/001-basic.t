@@ -1,5 +1,5 @@
 use Test;
-use Spreadsheet;
+use Spreadsheets;
 
 pass "replace me";
 
