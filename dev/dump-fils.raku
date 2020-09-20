@@ -122,7 +122,25 @@ class Row {
 }
 class Sheet {
     has Row @.row;      # an array of Row objects
-    has %.colrow; # a hash indexed by Excel A1 label (col A, row 1)
+    has %.colrow;       # a hash indexed by Excel A1 label (col A, row 1)
+
+    # single-value attributes
+    has $.active is rw = 0;
+    has $.indx   is rw = 0;
+    has $.label  is rw = '';
+    has $.maxcol is rw = 0;
+    has $.maxrow is rw = 0;
+    has $.mincol is rw = 0;
+    has $.minrow is rw = 0;
+    has $.parser is rw = '';
+    # other attributes
+    has @.attr   is rw; # array
+    has @.merged is rw; # array
+
+    method add-cell-data($cell-array) {
+        my $i = -1; # row index, zero-indexed
+        my $j = -1; # col index, zero-indexed
+    }
 
     # check for and handle Excel colrow ids
     method add-colrow-hash($k, $v) {
@@ -185,7 +203,7 @@ for @*ARGS {
 my $ifil = @f[$n];
 
 my $c = WorkbookSet.new;
-$c.read: :file($ifil), :debug;
+$c.read: :file($ifil), :$debug;
 if $debug {
     $c.dump;
 }
@@ -354,37 +372,47 @@ sub collect-book-data(%h, Workbook :$wb!, :$debug) {
         sheet    => 0,
     ];
 
+    my %keys-seen = %known-keys;
     say "DEBUG: collecting book meta data..." if $debug;
     for %h.kv -> $k, $v {
         say "  found key '$k'..." if $debug;
         note "WARNING: Unknown key '$k' in workbook meta data" unless %known-keys{$k}:exists;
         if $k eq 'error' {
+            ++%keys-seen{$k};
             $wb.error = $v;
         }
         elsif $k eq 'parser' {
+            ++%keys-seen{$k};
             $wb.parser = $v;
         }
         elsif $k eq 'quote' {
+            ++%keys-seen{$k};
             $wb.quote = $v;
         }
         elsif $k eq 'sepchar' {
+            ++%keys-seen{$k};
             $wb.sepchar = $v;
         }
         elsif $k eq 'sheets' {
+            ++%keys-seen{$k};
             $wb.sheets = $v;
         }
         elsif $k eq 'type' {
+            ++%keys-seen{$k};
             $wb.type = $v;
         }
         elsif $k eq 'version' {
+            ++%keys-seen{$k};
             $wb.version = $v;
         }
         # special handling required
         elsif $k eq 'sheet' {
+            ++%keys-seen{$k};
             $wb.sheet = get-wb-sheet-hash $v;
         }
         # special handling required
         elsif $k eq 'parsers' {
+            ++%keys-seen{$k};
             # This appears to be redundant and will
             # be ignored as long as it only contains
             # one element. The one element is an anonymous
@@ -464,19 +492,22 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
     # from Spreadsheet::Read and a Sheet object, collect
     # the data for the sheet.
     constant %known-keys = [
+        # single-value attributes
         active   => 0,
-        attr     => 0,
-        cell     => 0,
         indx     => 0,
         label    => 0,
         maxcol   => 0,
         maxrow   => 0,
-        merged   => 0,
         mincol   => 0,
         minrow   => 0,
         parser   => 0,
+        # other attributes
+        attr     => 0, # array
+        merged   => 0, # array
+        cell     => 0, # 2 x 2 array
     ];
 
+    my %keys-seen = %known-keys;
     for %h.kv -> $k, $v {
         if $k ~~ /^ (<[A..Z]>+) (<[1..9]> <[0..9]>?) $/ {
             # check for and handle Excel colrow ids
@@ -487,37 +518,51 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
         note "WARNING: Unknown key '$k' in spreadsheet data" unless %known-keys{$k}:exists;
 
         if $k eq 'active' {
-            #$s. = $v;
+            ++%keys-seen{$k};
+            $s.active = $v;
         }
         elsif $k eq 'attr' {
-            #$s. = $v;
+            # an array
+            ++%keys-seen{$k};
+            $s.attr = $v;
         }
         elsif $k eq 'cell' {
-            #$s. = $v;
+            ++%keys-seen{$k};
+            # the arrays here will be transformed to this module's row/col array
+            $s.add-cell-data: $v;
         }
         elsif $k eq 'indx' {
-            #$s. = $v;
+            ++%keys-seen{$k};
+            $s.indx = $v;
         }
         elsif $k eq 'label' {
-            #$s. = $v;
+            ++%keys-seen{$k};
+            $s.label = $v;
         }
         elsif $k eq 'maxcol' {
-            #$s. = $v;
+            ++%keys-seen{$k};
+            $s.maxcol = $v;
         }
         elsif $k eq 'maxrow' {
-            #$s. = $v;
+            ++%keys-seen{$k};
+            $s.maxrow = $v;
         }
         elsif $k eq 'merged' {
-            #$s. = $v;
+            # an array
+            ++%keys-seen{$k};
+            $s.merged = $v;
         }
         elsif $k eq 'mincol' {
-            #$s. = $v;
+            ++%keys-seen{$k};
+            $s.mincol = $v;
         }
         elsif $k eq 'minrow' {
-            #$s. = $v;
+            ++%keys-seen{$k};
+            $s.minrow = $v;
         }
         elsif $k eq 'parser' {
-            #$s. = $v;
+            ++%keys-seen{$k};
+            $s.parser = $v;
         }
     }
 }
