@@ -26,7 +26,7 @@ class Workbook {
     has %.sheet   is rw;      # key: sheet name, value: index 1..N of N sheets
 
     # the following appears to be redundant and will be ignored on read iff it
-    # only contains one element 
+    # only contains one element
     #has @.parsers is rw;      # array of parser pairs hashes, keys: name, type, version
 
     # convenience attrs
@@ -63,17 +63,17 @@ class WorkbookSet {
         my $ns = @.sources.elems;
         my $np = @.products.elems;
         my $s = $ns > 1 ?? 's' !! '';
-        say "DEBUG: dumping WorkbookSet containing:";  
-        say "          $ns source workbook$s...";  
+        say "DEBUG: dumping WorkbookSet containing:";
+        say "          $ns source workbook$s...";
         for @.sources.kv -> $i, $wb {
             $wb.dump: :index($i), :$debug;
         }
         $s = $np > 1 ?? 's' !! '';
         if $np {
-            say "          and $np product workbook$s...";  
+            say "          and $np product workbook$s...";
         }
         else {
-            say "          and no product workbooks.";  
+            say "          and no product workbooks.";
         }
     }
 
@@ -123,7 +123,7 @@ class Row {
 class Sheet {
     has Row @.row;      # an array of Row objects
     has %.colrow; # a hash indexed by Excel A1 label (col A, row 1)
-    
+
     # check for and handle Excel colrow ids
     method add-colrow-hash($k, $v) {
         %.colrow; # a hash indexed by Excel A1 label (col A, row 1)
@@ -151,8 +151,8 @@ my $sheet = 0;
 if !@*ARGS.elems {
     say qq:to/HERE/;
     Usage: {$*PROGRAM.basename} 1|2|3|4  [s1 s2]
-    
-    Uses the Perl  module Spreadsheet::Read and 
+
+    Uses the Perl  module Spreadsheet::Read and
     dumps the data from the selected file number:
     HERE
     my $n = 0;
@@ -167,14 +167,14 @@ if !@*ARGS.elems {
 my $n;
 my $debug = 0;
 for @*ARGS {
-    when /^d/ { 
-        $debug = 1; 
+    when /^d/ {
+        $debug = 1;
     }
-    when /s(1|2)/ { 
-        $sheet = +$0; 
+    when /s(1|2)/ {
+        $sheet = +$0;
     }
-    when /(1|2|3|4)/ { 
-        $n = +$0 - 1 
+    when /(1|2|3|4)/ {
+        $n = +$0 - 1
     }
     default {
         say "FATAL: Unhandled arg '$_'";
@@ -274,7 +274,7 @@ sub dump-hash(%h, :$level is copy = 0, :$debug) {
         my $v = %h{$k} // '';
         my $t = $v.^name;
 
-        
+
         if $k ~~ /^ (<[A..Z]>+) (<[1..9]> <[0..9]>?) $/ {
             # collect the Excel A1 hashes
             my $col = ~$0;
@@ -337,21 +337,22 @@ sub collect-file-data(:$path, Workbook :$wb!, :$debug) {
 }
 
 sub collect-book-data(%h, Workbook :$wb!, :$debug) {
-    # Given the zeroth hash from Spreadsheet::Read and a 
+    # Given the zeroth hash from Spreadsheet::Read and a
     # Workbook object, collect the meta data for the workbook.
-    constant %known-keys = set <
-        error
-        quote
-        sepchar
-        sheets
 
-        parser
-        type
-        version
+    constant %known-keys = [
+        error    => 0,
+        quote    => 0,
+        sepchar  => 0,
+        sheets   => 0,
 
-        parsers
-        sheet
-    >;
+        parser   => 0,
+        type     => 0,
+        version  => 0,
+
+        parsers  => 0, # not used at the moment as it appears to be redundant
+        sheet    => 0,
+    ];
 
     say "DEBUG: collecting book meta data..." if $debug;
     for %h.kv -> $k, $v {
@@ -422,7 +423,7 @@ sub get-wb-parsers-array($v) {
     my $t = $v.^name; # expect Perl5 Array
     my @a;
     my $val = $v // '';
-    
+
     if $t ~~ /Array/ {
         if $val {
            for $val -> $v {
@@ -433,7 +434,7 @@ sub get-wb-parsers-array($v) {
                my $V = $v // '';
                @a.push: $V;
            }
-        }         
+        }
         else {
             note "array is empty or undefined";
         }
@@ -446,35 +447,35 @@ sub get-wb-sheet-hash($v) {
     my $t = $v.^name; # expect Perl5 Hash
     my %h;
     my $val = $v // '';
-    
+
     if $t ~~ /Hash/ {
         if $val {
            for $val.kv -> $k, $v {
                %h{$k} = $v;
            }
-        }         
+        }
         return %h;
     }
     die "FATAL: Unexpected non-hash type '$t'";
 }
 
 sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
-    # Given the sheet's original index, i, the ith hash 
-    # from Spreadsheet::Read and a Sheet object, collect 
+    # Given the sheet's original index, i, the ith hash
+    # from Spreadsheet::Read and a Sheet object, collect
     # the data for the sheet.
-    constant %known-keys = set <
-        active
-        attr
-        cell
-        indx
-        label
-        maxcol
-        maxrow
-        merged
-        mincol
-        minrow
-        parser
-    >;
+    constant %known-keys = [
+        active   => 0,
+        attr     => 0,
+        cell     => 0,
+        indx     => 0,
+        label    => 0,
+        maxcol   => 0,
+        maxrow   => 0,
+        merged   => 0,
+        mincol   => 0,
+        minrow   => 0,
+        parser   => 0,
+    ];
 
     for %h.kv -> $k, $v {
         if $k ~~ /^ (<[A..Z]>+) (<[1..9]> <[0..9]>?) $/ {
@@ -484,14 +485,46 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
         }
 
         note "WARNING: Unknown key '$k' in spreadsheet data" unless %known-keys{$k}:exists;
+
+        if $k eq 'active' {
+            #$s. = $v;
+        }
+        elsif $k eq 'attr' {
+            #$s. = $v;
+        }
+        elsif $k eq 'cell' {
+            #$s. = $v;
+        }
+        elsif $k eq 'indx' {
+            #$s. = $v;
+        }
+        elsif $k eq 'label' {
+            #$s. = $v;
+        }
+        elsif $k eq 'maxcol' {
+            #$s. = $v;
+        }
+        elsif $k eq 'maxrow' {
+            #$s. = $v;
+        }
+        elsif $k eq 'merged' {
+            #$s. = $v;
+        }
+        elsif $k eq 'mincol' {
+            #$s. = $v;
+        }
+        elsif $k eq 'minrow' {
+            #$s. = $v;
+        }
+        elsif $k eq 'parser' {
+            #$s. = $v;
+        }
     }
 }
 
 sub collect-cell-data($cell, Sheet :$s!, :$debug) {
-    # Given a cell array from Spreadsheet::Read and a 
-    # Sheet object, collect the data for the sheet. In 
-    # the process, convert the data into rows of cells 
+    # Given a cell array from Spreadsheet::Read and a
+    # Sheet object, collect the data for the sheet. In
+    # the process, convert the data into rows of cells
     # with zero-based indexing.
 }
-
-
