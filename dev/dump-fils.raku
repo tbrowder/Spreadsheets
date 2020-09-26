@@ -1,12 +1,18 @@
 #!/usr/bin/env raku
 
 use Spreadsheet::Read:from<Perl5>;
+use Text::Utils :normalize-string;
+#use Data::Dump;
+#use Data::Dump::Tree;
+
+constant $SPACES = '    ';
 
 my @f =
 "../t/data/sample-security-sales.xlsx",
 "../t/data/sample-security-sales.xls",
 "../t/data/sample-security-sales.ods",
 "../t/data/sample-security-sales.csv",
+"../t/data/mytest.csv",
 ;
 
 class WorkbookSet {...}
@@ -25,6 +31,8 @@ class Workbook {
     #   with array or hash values
     has %.sheet   is rw;      # key: sheet name, value: index 1..N of N sheets
 
+    has $.trim is rw = 1; # default behavior
+
     # the following appears to be redundant and will be ignored on read iff it
     # only contains one element
     #has @.parsers is rw;      # array of parser pairs hashes, keys: name, type, version
@@ -41,12 +49,22 @@ class Workbook {
             my $v = %.sheet{$k};
             say "    '$k' => '$v'";
         }
+        say "DEBUG: dumping sheet row/cols";
+        my $i = 0;
+        for @.Sheet -> $s {
+            ++$i;
+            say "=== sheet $i...";
+            #$s.dump;
+            $s.dump-csv;
+        }
+
     }
 
     method clone {
         # returns a copy of this Book object
     }
 }
+
 class WorkbookSet {
     #| an array of immutable input Workbook objects that can be written again under a new name
     has Workbook @.sources;
@@ -97,17 +115,21 @@ class WorkbookSet {
         my $wb = Workbook.new: :$basename, :$path;
         @.sources.push: $wb;
         collect-file-data(:$path, :$wb, :$debug);
+
     }
 }
+
 class Cell {
     # should a Cell know its array position? just in case:
-    has $.i; # row index, zero-based
-    has $.j; # col index, zero-based
+    has $.i is rw; # row index, zero-based
+    has $.j is rw; # col index, zero-based
 
-    has $.value;
+    has $.value is rw;
     has $.read-format; # as reported by Spreadsheet::Read
 
-    has $.format;
+    # these data come from Spreadsheet::Read's 'attr' key's value
+    # which is an array of arrays of hashes
+    has %.format;
 
     method clone {
         # returns a copy of this Cell object
@@ -116,30 +138,285 @@ class Cell {
 class Row {
     has Cell @.cell; # an array of Cell objects
 
+    method trim(:$debug) {
+        my $v = @.cell.tail.value;
+        while @.cell.elems and ($v ~~ Any:U or $v eq '') {
+            @.cell.pop;
+            $v = @.cell.tail.value;
+        }
+    }
+
     method clone {
         # returns a copy of this Row object
     }
 }
 class Sheet {
-    has Row @.row;      # an array of Row objects
+    has Row @.row;      # an array of Row objects (each Row object has an array of Cell objects)
     has %.colrow;       # a hash indexed by Excel A1 label (col A, row 1)
 
     # single-value attributes
     has $.active is rw = 0;
     has $.indx   is rw = 0;
     has $.label  is rw = '';
-    has $.maxcol is rw = 0;
-    has $.maxrow is rw = 0;
+    has $.maxcol is rw = 0; # in the input data, this is the last-used column, 1-based
+    has $.maxrow is rw = 0; # in the input data, this is the last-used row, 1-based
     has $.mincol is rw = 0;
     has $.minrow is rw = 0;
     has $.parser is rw = '';
     # other attributes
-    has @.attr   is rw; # array
+    #has @.attr   is rw; # array
     has @.merged is rw; # array
 
-    method add-cell-data($cell-array) {
-        my $i = -1; # row index, zero-indexed
-        my $j = -1; # col index, zero-indexed
+    has $.trim is rw = 1;
+
+    method dump-csv {
+        my $nrows = @.row.elems;
+        say "$nrows rows";
+        for @.row.kv -> $i, $row {
+            say "row $i: {$row.cell.elems} cells";
+        }
+        say "==== $nrows rows";
+        for @.row.kv -> $i, $row {
+            my $ncols = $row.cell.elems;
+            for $row.cell.kv -> $j, $c {
+                print "," if $j;
+                if $c ~~ Cell and $c.value {
+                    print "{$c.value}";
+                }
+            }
+            #say();
+            say "    <-- # $ncols columns";
+        }
+    }
+
+    method dump {
+        for @.row.kv -> $i, $row {
+            say "  row $i";
+            print "    ";
+            for $row.cell.kv -> $j, $c {
+                if $c and $c.value {
+                    print " '{$c.value}'";
+                }
+                else {
+                    print " '(empty)'";
+                }
+            }
+            say();
+        }
+    }
+
+    method add-cell-format-hash(%h, :$i, :$j, :$debug) {
+        my $row = @.row[$i];
+        if $row.cell[$j] {
+            # add the hash
+            $row.cell[$j].format = %h;
+        }
+        else {
+            die "FATAL: no Cell object for row $i, col $j";    
+        }
+    }
+
+    method add-cell(Cell $c, :$debug) {
+        my $i = $c.i;
+        my $j = $c.j;
+
+        # ensure we have rows for indices 0 through $i
+        for 0..$i -> $idx {
+            if not @.row[$idx] {
+                my $r = Row.new;
+                @.row[$idx] = $r;
+            }
+        }
+
+        my $row = @.row[$i];
+        if $row.cell[$j] {
+             note "WARNING: cell $i, $j already exists";
+        }
+        else {
+             $row.cell[$j] = $c;
+        }
+    }
+
+    method add-cell-attrs(@attrs, :$debug) {
+        if 0 and $debug {
+            say "DEBUG: in sub add-cell-attrs, dumping raw input cell data";
+            my $j = -1;
+            shift @attrs; # elim empty col
+            for @attrs -> $a {
+               ++$j; 
+                say "col $j";
+                if $a ~~ Any:U {
+                    #say "1 skipping undefined object type {$a.^name}";
+                    say "  skipping undefined column array";
+                    next;
+                }
+                    
+                my @arr = @($a);
+                shift @arr; # elim empty row
+                my $i = -1;
+                for @arr -> $c {
+                    ++$i;
+                    say "    row $i";
+
+                    if $c ~~ Any:U {
+                        #say "2 skipping undefined object type {$c.^name}";
+                        say "      skipping undefined cell hash";
+                        next;
+                    }
+
+                    for $c.keys.sort -> $k {
+                         my $v = %($c){$k};
+                         if $v ~~ Any:U {
+                             say "       key '$k' => value 'Nil'";
+                             next; 
+                         }
+                         say "       key '$k' => value '$v'";
+                    }
+                    next;
+                }
+            }
+            say "DEBUG: early exit";
+            exit;
+        }
+
+        # First we'll make sure we can read the data.
+        my $t = @attrs.^name;
+        say "  incoming @attrs type: $t" if $debug;
+        my $j = -1; # col index, zero-based
+        my $nc = @attrs.elems;
+        say "  \@attrs array has $nc elements" if $debug;
+        @attrs.shift; # elim empty col
+        for @attrs -> $col {
+            $t = $col.^name;
+            say "    col array element type: $t" if $debug;
+            ++$j;
+            say "    reading col $j" if $debug;
+            # it may be undef
+            my @colrows = @($col); # // Nil;
+            @colrows.shift; # elim empty row
+            if @colrows ~~ Any:D {
+                # an empty column
+                say "    (empty column array)" if $debug; 
+            }
+            else {
+                # one or more cells
+                my $nr = @colrows.elems;
+                $t = @colrows.^name;
+                say "    colrows type: $t (with $nr elements)" if $debug;
+                my $i = -1; # row index, zero-based
+                for @colrows -> $rowcell {
+                    $t = $rowcell.^name;
+                    ++$i;
+                    # it may be undef
+                    my %h = %($rowcell) // Nil;
+                    if %h ~~ Any:U {
+                        say "      skipping undefined cell hash $i (type $t)" if $debug;
+                        next;
+                    }
+                    if $debug {
+                        say "      dumping cell hash $i (type $t)" if $debug;
+                        for %h.kv -> $k, $v {
+                            if $v ~~ Any:U {
+                                say "       key '$k' => value 'Nil'";
+                                next; 
+                            }
+                            say "       key '$k' => value '$v'";
+                        }
+                    }
+                    # add the hash to the proper Cell object
+                    self.add-cell-format-hash: %h, :$i, :$j, :$debug;
+                }
+            }
+        }
+    }
+
+    method add-cell-data(@cols, :$debug) {
+
+        if 0 and $debug {
+            my $nr = @cols.elems;
+            say "DEBUG: in sub add-cell-data, dumping raw input cell data for $nr cols";
+            if 0 {
+                say @cols.gist;
+                say @cols.raku;
+                say "DEBUG: early exit"; exit;
+            }
+            
+            shift @cols; # elim empty col
+            my $j = -1;
+            for @cols -> $a {
+                ++$j;
+                say "col $j";
+                if not $a or $a ~~ Any:U {
+                    say "(Nil col)";
+                    next;
+                }
+                my @a = @($a);
+                shift @a; # elim empty row
+                for @a -> $b {
+                    my $v = $b // '|';
+                    $v = normalize-string $v if $v ~~ Str;
+                    $v = '|' if $v eq '';
+                    print " $v";
+                }
+                say();
+            }
+            say "DEBUG: early exit"; exit;
+        }
+
+        # First we'll make sure we can read the data.  We want
+        # undefined cells to have empty values.  Keep track of max
+        # number of cells in a row:
+        @cols.shift; # elim empty col
+        my $max = 0;
+        my $t = @cols.^name;
+        say "  incoming cols type: $t" if $debug;
+        my $j = -1; # col index, zero-based
+        my $nc = @cols.elems;
+        say "  \@cols array has $nc elements" if $debug;
+        for @cols -> $col {
+            $t = $col.^name;
+            say "    col array element type: $t" if $debug;
+            ++$j;
+            say "    reading col $j" if $debug;
+            # it may be undef
+            my @colrows = @($col); # // [];
+            @colrows.shift; # elim empty row cell
+            my $nr = @colrows.elems;
+            if @colrows ~~ Any:U {
+                # an empty column
+                say "    (empty column array)" if $debug; #
+                next;
+            }
+            # one or more cells
+            $t = @colrows.^name;
+            say "    colrows type: $t (with $nr elements)" if $debug;
+            my $i = -1; # row index, zero-based
+            for @colrows -> $rowcell {
+                $t = $rowcell.^name;
+                ++$i;
+                ++$max if $i > $max;
+                # it may be undef
+                my $cell = $rowcell // Nil;
+                my $c = Cell.new: :$i, :$j;
+                $c.value = $cell unless $cell ~~ Any:U; #eq '(empty)';
+                self.add-cell: $c;
+                if $debug {
+                    say "      reading cell $i, $j";
+                    say "      orginal cell type: $t";
+                    my $val = $cell // 'Nil';
+                    say "      cell value: '$val'";
+                }
+            }
+        }
+        # TODO why does dump-csv add cells that shouldn't be there?
+        # trim empty cells from each row
+        if $.trim {
+            ; # delete empty trailing empty cells
+            for self.row -> $row {
+                $row.trim;
+            }
+        }
+
     }
 
     # check for and handle Excel colrow ids
@@ -153,10 +430,10 @@ class Sheet {
         }
     }
 
-    method dump-colrows {
+    method dump-colrows(:$debug) {
         for %.colrow.keys.sort -> $k {
             my $v = %.colrow{$k};
-            note "rolcow: $k, value: $v";
+            note "rolcow: $k, value: $v" if $debug;
         }
     }
 
@@ -168,7 +445,7 @@ class Sheet {
 my $sheet = 0;
 if !@*ARGS.elems {
     say qq:to/HERE/;
-    Usage: {$*PROGRAM.basename} 1|2|3|4  [s1 s2]
+    Usage: {$*PROGRAM.basename} 1|2|3|4|5  [s1 s2]
 
     Uses the Perl  module Spreadsheet::Read and
     dumps the data from the selected file number:
@@ -191,7 +468,7 @@ for @*ARGS {
     when /s(1|2)/ {
         $sheet = +$0;
     }
-    when /(1|2|3|4)/ {
+    when /(1|2|3|4|5)/ {
         $n = +$0 - 1
     }
     default {
@@ -216,10 +493,22 @@ if $sheet > 1 and $ifil ~~ /:i csv/ {
     exit;
 }
 
-my $book = ReadData $ifil;
+# note the following read line is critical for interpreting
+# the input data
+my $book = ReadData $ifil,
+    :attr(1),
+    #:clip(1),
+    #:strip(3)
+    ;
+
 my $ne = $book.elems;
 say "\$book has $ne elements indexed from zero";
 #exit;
+
+my @rows = $book[1].rows;
+say "DEBUG: \@rows.gist:";
+say @rows.gist;
+exit;
 
 my %h = $book[$sheet];
 say "Dumping hash in \$book[$sheet]:";
@@ -262,24 +551,31 @@ dump-hash %h;
 
 #### subroutines ####
 sub dump-array(@a, :$level is copy = 0, :$debug) {
-    my $sp = $level ?? '  ' x $level !! '';
+    my $sp = $level ?? $SPACES x $level !! '';
     for @a.kv -> $i, $v {
         my $t = $v.^name;
-        say "$sp index $i, value type: $t";
+
+        print "$sp index $i, value type: $t";
         if $t ~~ /Hash/ {
+            my $ne = $v.elems;
+            say ", num elems: $ne";
             dump-hash $v, :level(++$level), :$debug;
         }
         elsif $t ~~ /Array/ {
             # we may have an undef array
             my $val = $v // '';
             if $val {
+                my $ne = $v.elems;
+                say ", num elems: $ne";
                 dump-array $v, :level(++$level), :$debug;
             }
             else {
+                say();
                 say "$sp   (undef array)";
             }
         }
         else {
+            say();
             my $s = $v // '';
             say "$sp   value: '$s'";
         }
@@ -287,7 +583,7 @@ sub dump-array(@a, :$level is copy = 0, :$debug) {
 }
 
 sub dump-hash(%h, :$level is copy = 0, :$debug) {
-    my $sp = $level ?? '  ' x $level !! '';
+    my $sp = $level ?? $SPACES x $level !! '';
     for %h.keys.sort -> $k {
         my $v = %h{$k} // '';
         my $t = $v.^name;
@@ -339,11 +635,18 @@ sub dump-hash(%h, :$level is copy = 0, :$debug) {
 }
 
 sub collect-file-data(:$path, Workbook :$wb!, :$debug) {
-    my $pbook = ReadData $path; # array of hashes
+    #my $pbook = ReadData $path, :attr, :clip, :strip(3); # array of hashes
+    my $pbook = ReadData $path, :attr; #, :clip, :strip(3); # array of hashes
     my $ne = $pbook.elems;
     say "\$book has $ne elements indexed from zero" if $debug;
     my %h = $pbook[0];
     collect-book-data %h, :$wb, :$debug;
+
+=begin comment
+my @rows = Spreadsheet::Read::rows($pbook[1]<cell>);
+say @rows.gist;
+#say "DEBUG exit";exit;
+=end comment
 
     # get all the sheet data
     for 1..^$ne -> $index {
@@ -508,6 +811,12 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
     ];
 
     my %keys-seen = %known-keys;
+
+    # Since we can't ensure the 'cell' arrays
+    # are read before the 'attr' arrays, we
+    # save its value here and read it after
+    # all other keys are seen.
+    my $attr = 0;
     for %h.kv -> $k, $v {
         if $k ~~ /^ (<[A..Z]>+) (<[1..9]> <[0..9]>?) $/ {
             # check for and handle Excel colrow ids
@@ -522,14 +831,117 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
             $s.active = $v;
         }
         elsif $k eq 'attr' {
-            # an array
+            # a 2x2 array of various types
             ++%keys-seen{$k};
+            # save the value for later handling
+            $attr = $v;
+            next;
+
+            my ($t, $vv, $ne) = get-typ-and-val $v;
+            # this SHOULD be an array OR undef
+            say "DEBUG dumping type $t with $ne elements";
+            # col first
+            my $j = -1;
+
+            my $a = $vv;
+            if $t !~~ /Array|Hash/ {
+               die "Unexpected type $t";
+            }
+            if $t ~~ /Array/ {
+                dump-array $a, :$debug;
+                say "DEBUG: early exit";exit;
+            }
+
+            for $a -> $b {
+                ++$j;
+                ($t, $vv, $ne) = get-typ-and-val $b;
+                say "    dumping type $t with $ne elements";
+
+                my $aa = $a // '';
+                $t = $aa.^name;
+                if $t !~~ /Hash|Str|Any|Array/ {
+                    note "unexpected attr type $t";
+                    say "DEBUG early exit";exit;
+                }
+                else {
+                    say "    got type: $t";
+                }
+                if $t ~~ /Str/ {
+                    say "    gisting string at col $j:";
+                    say $c.gist;
+                    next;
+                }
+
+                my @a = @($a) // [];
+                my $n = @a.elems;
+                say "  array $j consisting of $n hash elements";
+                my $i = -1;
+                for @a -> $b {
+                    ++$i;
+                    $t = $b.^name;
+                    if $t !~~ /Hash|Str|Any|Array/ {
+                        note "unexpected attr type $t";
+                        say "DEBUG early exit";exit;
+                    }
+                    else {
+                        say "    got type: $t";
+                    }
+
+                    my $c = $b // '';
+                    $t = $c.^name;
+                    if $t ~~ /Array/ {
+                        say "    gisting array at $i,$j:";
+                    }
+                    elsif $t ~~ /Str/ {
+                        say "    gisting string at $i,$j:";
+                        say $c.gist;
+                        next;
+                    }
+                    elsif $t ~~ /Hash/ {
+                        say "    gisting hash at $i,$j:";
+                        say $c.gist;
+                        next;
+                    }
+                    else {
+                        note "unexpected attr type $t";
+                        say "DEBUG early exit 2";exit;
+                    }
+
+                    my @c = @($c);
+                    for @c -> $d {
+                        $t = $d.^name;
+                        say "      \$d element type: $t":
+                        my $e = $c // '';
+                        $t = $e.^name;
+                        if $t ~~ /Hash/ {
+                            my %h = %($e) // %();
+                            for %h.keys.sort -> $k {
+                                my $v = %h{$k};
+                                say "      '$k' => '$v'";
+                            }
+                        }
+                        elsif $t ~~ /Hash/ {
+                            my %h = %($e) // %();
+                            for %h.keys.sort -> $k {
+                                my $v = %h{$k};
+                                say "      '$k' => '$v'";
+                            }
+                        }
+                    }
+                    #print "    '$val'";
+                }
+                say();
+            }
+
             $s.attr = $v;
+            #say $v.raku;
+            say "DEBUG early exit";exit;
         }
         elsif $k eq 'cell' {
             ++%keys-seen{$k};
+            # a 2x2 aray
             # the arrays here will be transformed to this module's row/col array
-            $s.add-cell-data: $v;
+            $s.add-cell-data: $v, :$debug;
         }
         elsif $k eq 'indx' {
             ++%keys-seen{$k};
@@ -565,6 +977,32 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
             $s.parser = $v;
         }
     }
+
+    # now we add the 'attr' data if it's available
+    $s.add-cell-attrs($attr, :$debug) if $attr;
+
+    # First check our assumptions are correct: The array should be
+    # rectangular.
+    # TODO or should that be an option?
+    my $maxcol = 0;
+    my $i = -1;
+    my $err = 0;
+    my $warn = 0;
+    for $s.row -> $r {
+        ++$i;
+        my $nc = $r.cell.elems;
+        $maxcol = $nc if $i == 0;
+        if $nc != $maxcol {
+            ++$warn;
+            say "WARNING: row $i has $nc elements but \$maxcol is $maxcol elements" if 0 and $debug;
+        }
+    }
+
+    if 0 and $debug {
+        say "DEBUG: early exit";
+        exit;
+    }
+
 }
 
 sub collect-cell-data($cell, Sheet :$s!, :$debug) {
@@ -572,4 +1010,20 @@ sub collect-cell-data($cell, Sheet :$s!, :$debug) {
     # Sheet object, collect the data for the sheet. In
     # the process, convert the data into rows of cells
     # with zero-based indexing.
+}
+
+sub get-typ-and-val($v, :$debug) {
+    # Determines the type of $v, then converts
+    # $v to either a string with value 'undef'
+    # or retains its value.
+    my $t = $v.^name;
+    my $vv = $v // 'undef';
+    $t = $vv.^name;
+    my $ne = $vv.elems;
+    if $t !~~ /Hash|Str|Int|Num|Array/ {
+        note "unexpected attr type $t";
+        note "DEBUG early exit";
+        die "FATAL";
+    }
+    return ($t, $vv, $ne);
 }

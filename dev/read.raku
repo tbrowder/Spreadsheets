@@ -1,21 +1,22 @@
 #!/usr/bin/env raku
 
-use lib <../lib>;
-use Spreadsheet;
+#use lib <../lib>;
+#use Spreadsheets;
 
 my @f =
 "../t/data/sample-security-sales.xlsx",
 "../t/data/sample-security-sales.xls",
 "../t/data/sample-security-sales.ods",
 "../t/data/sample-security-sales.csv",
+"../t/data/mytest.csv",
 ;
 
 if !@*ARGS.elems {
     say qq:to/HERE/;
-    Usage: {$*PROGRAM.basename} 1|2|3|4 
+    Usage: {$*PROGRAM.basename} 1|2|3|4|5 
     
-    Uses the Raku module Spreadsheet and 
-    dumps the data from the selected file number:
+    Uses the Perl module Spreadsheet::Read and 
+    inspects data from the selected file number:
     HERE
     my $n = 0;
     for @f -> $f {
@@ -27,7 +28,7 @@ if !@*ARGS.elems {
 
 my $n;
 for @*ARGS {
-    when /(1|2|3|4)/ { 
+    when /(1|2|3|4|5)/ { 
         $n = +$0 - 1 
     }
     default {
@@ -36,8 +37,11 @@ for @*ARGS {
     }
 }
 
-my $book = Spreadsheet.new;
-$book.read: :file(@f[$n]);
-say $book.gist;
+my $ifil = @f[$n];
+use Spreadsheet::Read:from<Perl5>;
+my $wb = Spreadsheet::Read.new($ifil) ;
+my %sheet = %($wb.sheet(1));
+
+say %sheet.gist;
 say "The above data were in file '@f[$n]'";
 
