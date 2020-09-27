@@ -125,14 +125,16 @@ class Cell {
     has $.j is rw; # col index, zero-based
 
     has $.value is rw;
-    has $.read-format; # as reported by Spreadsheet::Read
+    has $.format; # as reported by Spreadsheet::Read
 
     # these data come from Spreadsheet::Read's 'attr' key's value
     # which is an array of arrays of hashes
-    has %.format;
+    has %.fmt;
 
     method copy {
         # returns a copy of this Cell object
+        my $c = Cell.new: :i($.i), :j($.j), :value($.value), :fmt(%.fmt), :format($.format);
+        return $c;
     }
 }
 class Row {
@@ -205,11 +207,11 @@ class Sheet {
         }
     }
 
-    method add-cell-format-hash(%h, :$i, :$j, :$debug) {
+    method add-cell-fmt-hash(%h, :$i, :$j, :$debug) {
         my $row = @.row[$i];
         if $row.cell[$j] {
             # add the hash
-            $row.cell[$j].format = %h;
+            $row.cell[$j].fmt = %h;
         }
         else {
             die "FATAL: no Cell object for row $i, col $j";    
@@ -324,7 +326,7 @@ class Sheet {
                         }
                     }
                     # add the hash to the proper Cell object
-                    self.add-cell-format-hash: %h, :$i, :$j, :$debug;
+                    self.add-cell-fmt-hash: %h, :$i, :$j, :$debug;
                 }
             }
         }
