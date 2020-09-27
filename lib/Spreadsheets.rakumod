@@ -22,8 +22,7 @@ $book.write: :file<myfile.xlsx>;
 
 Spreadsheet is intended to be a reasonably universal spreadsheet
 reader and writer for the formats shown below. It relies on some
-well-tested Perl modules as well as a Raku module that wraps the
-*libcsv* library available on Debian and other Linux distributions.
+well-tested Perl modules.
 
 Its unique strength is a common set of classes to make spreadsheet
 data use easy regardless of the file format being used.
@@ -42,7 +41,8 @@ XLSX | XLSX  |
 
 Note: Formats marked with an asterisk are not yet
 implemented (NYI). The author does not intend to
-expend any effort on writing those formats unless
+expend any effort on developing the NYI write 
+formats unless
 he gets a Pull Request (PR) which provides such
 a capability.
 
@@ -53,11 +53,20 @@ Perl modules                  | Debian package | Notes
 ---                           | ---            | ---
 Spreadsheet::Read             | libspreadsheet-read-perl
 Spreadsheet::ParseExcel       | libspreadsheet-parseexcel-perl
-Spreadsheet::ParseXLSX        | libspreadsheet-parsexlsx-perl
+Spreadsheet::ParseXLSX        | *libspreadsheet-parsexlsx-perl
 Spreadsheet::ReadSXC          | libspreadsheet-readsxc-perl
 Text::CSV                     | libtext-csv-perl
-Excel::Writer::XSLX           | libexcel-writer-xlsx-perl
+Excel::Writer::XSLX           | *libexcel-writer-xlsx-perl
 =end table
+
+* NOTE: Ubuntu users do not have access to the packages
+marked with an asterisk. Instead, they can do the following:
+
+=begin code
+sudo apt-get install -y cpanminus
+sudo cpanm Spreadsheet::ParseXLSX
+sudo cpanm Excel::Writer::XSLX
+=end code
 
 =head2 Design
 
