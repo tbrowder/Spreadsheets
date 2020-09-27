@@ -60,7 +60,7 @@ class Workbook {
 
     }
 
-    method clone {
+    method copy {
         # returns a copy of this Book object
     }
 }
@@ -131,7 +131,7 @@ class Cell {
     # which is an array of arrays of hashes
     has %.format;
 
-    method clone {
+    method copy {
         # returns a copy of this Cell object
     }
 }
@@ -146,7 +146,7 @@ class Row {
         }
     }
 
-    method clone {
+    method copy {
         # returns a copy of this Row object
     }
 }
@@ -437,7 +437,7 @@ class Sheet {
         }
     }
 
-    method clone {
+    method copy {
         # returns a copy of this Sheet object
     }
 }
