@@ -4,7 +4,10 @@
     "Tom Browder"
   ],
   "build-depends" : [ ],
-  "depends" : [ ],
+  "depends" : [
+    "JSON::Hjson",
+    "Inline::Perl5"
+  ],
   "description" : "A universal, multiple spreadsheet reader/writer",
   "license" : "Artistic-2.0",
   "name" : "Spreadsheets",
@@ -15,6 +18,8 @@
   "resources" : [ ],
   "source-url" : "https://github.com/tbrowder/Spreadsheets.git",
   "tags" : [ ],
-  "test-depends" : [ ],
+  "test-depends" : [
+    "Test::META"
+  ],
   "version" : "0.0.1"
 }

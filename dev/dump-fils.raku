@@ -31,7 +31,7 @@ class Workbook {
     #   with array or hash values
     has %.sheet   is rw;      # key: sheet name, value: index 1..N of N sheets
 
-    has $.no-trim is rw = 0; # default behavior
+    has $.no-trim is rw = 0; # default behavior is to trim trailing empty cells from each row
 
     # the following appears to be redundant and will be ignored on read iff it
     # only contains one element
@@ -61,21 +61,22 @@ class Workbook {
     }
 
     method copy {
-        # returns a copy of this Book object
+        # returns a copy of this Workbook object
     }
 }
 
 class WorkbookSet {
-    #| an array of immutable input Workbook objects that can be written again under a new name
+    #| an array of "immutable" input Workbook objects that can be written again under a new name
     has Workbook @.sources;
-    has $.last-source-index = -1; # increment as source workbooks are added
+    # not needed: has $.last-source-index = -1; # increment as source workbooks are added
+    #   use "@.sources.tail" for the last object, use "@.sources.end" for the last index number
 
     #| a hash of info on files read or written and their associated Workbook locations
     has %.files;
 
     #| an array of Workbook objects capable of being written
     has Workbook @.products;
-    has $.last-product-index = -1; # increment as product workbooks are added
+    # not needed: has $.last-product-index = -1; # increment as product workbooks are added
 
     method dump(:$debug) {
         my $ns = @.sources.elems;

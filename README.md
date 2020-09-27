@@ -9,7 +9,7 @@ SYNOPSIS
 ========
 
 ```raku
-use Spreadsheet;
+use Spreadsheets;
 my $book = Spreadsheets.new;
 $book.read: :file<myfile.cvs>, :has-header;
 $book.write: :file<myfile.xlsx>;
