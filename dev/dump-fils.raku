@@ -31,7 +31,7 @@ class Workbook {
     #   with array or hash values
     has %.sheet   is rw;      # key: sheet name, value: index 1..N of N sheets
 
-    has $.trim is rw = 1; # default behavior
+    has $.no-trim is rw = 0; # default behavior
 
     # the following appears to be redundant and will be ignored on read iff it
     # only contains one element
@@ -167,7 +167,7 @@ class Sheet {
     #has @.attr   is rw; # array
     has @.merged is rw; # array
 
-    has $.trim is rw = 1;
+    has $.no-trim is rw = 0;
 
     method dump-csv {
         my $nrows = @.row.elems;
@@ -410,7 +410,7 @@ class Sheet {
         }
         # TODO why does dump-csv add cells that shouldn't be there?
         # trim empty cells from each row
-        if $.trim {
+        if not $.no-trim {
             ; # delete empty trailing empty cells
             for self.row -> $row {
                 $row.trim;
