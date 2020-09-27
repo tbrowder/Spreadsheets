@@ -174,8 +174,6 @@ This library is free software; you can redistribute it and/or modify it under th
 
 =end pod
 
-use Data::Dump;
-
 has %.meta;
 
 method read(:$file!, 
@@ -195,7 +193,6 @@ method read(:$file!,
     #%.meta = @data.shift;
 
     if 1 or $debug {
-        #say Dump($data, :no-postfix, :skip-methods);
         #say $data.gist;
         #say %.meta.gist;
         say "DEBUG: dumping meta data:";
