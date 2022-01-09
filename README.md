@@ -3,7 +3,7 @@
 NAME
 ====
 
-Spreadsheet - A universal, multiple spreadsheet reader/writer
+Spreadsheets - A universal, multiple spreadsheet reader/writer
 
 SYNOPSIS
 ========
@@ -12,13 +12,14 @@ SYNOPSIS
 use Spreadsheets;
 my $book = Spreadsheets.new;
 $book.read: :file<myfile.cvs>, :has-header;
-$book.write: :file<myfile.xlsx>;
+$book.read: :file<mytmplfile.xlsx>, :is-template<a>;
+$book.write: :file<myfile.xlsx>, :use-template<a>;
 ```
 
 DESCRIPTION
 ===========
 
-Spreadsheet is intended to be a reasonably universal spreadsheet reader and writer for the formats shown below. It relies on some well-tested Perl modules.
+**Spreadsheets** is intended to be a reasonably universal spreadsheet reader and writer for the formats shown below. It relies on some well-tested Perl modules.
 
 Its unique strength is a common set of classes to make spreadsheet data use easy regardless of the file format being used.
 
@@ -59,15 +60,15 @@ Design
 
 This module is designed to treat data as a two-dimensional array of data cells (row, column; zero indexed), commonly referred to as a 'spreadsheet', represented by a Sheet object. Multiple spreadsheets can be children of a Workbook object which is modeled after an Excel XLSX file (known as a workbook). Finally, a WorkbookSet object can have multiple Workbook objects as children.
 
-A spreadsheet may have the first row defined as a header row with unique identifiers as keys to a hash of each column.
+A CSV spreadsheet may have the first row defined as a header row with unique identifiers as keys to a hash of each column.
 
-Spreadsheet arrays may be acccessed in various ways to suit the tastes of the user. For example, given a spreadsheet $s:
+Spreadsheet arrays may be acccessed in various ways to suit the tastes of the user. For example, given a spreadsheet `$s`:
 
 ### Single cell (e.g., row 0, column 2)
 
 <table class="pod-table">
 <tbody>
-<tr> <td>$s.cell(0,2)</td> <td></td> </tr> <tr> <td>$s.rowcol(0,2)</td> <td></td> </tr> <tr> <td>$s.colrow(2,0)</td> <td></td> </tr> <tr> <td>$s[0;2]</td> <td>Raku syntax</td> </tr> <tr> <td>$s&lt;c1&gt;</td> <td>Excel syntax</td> </tr>
+<tr> <td>$s.cell(0,2)</td> <td></td> </tr> <tr> <td>$s.rowcol(0,2)</td> <td></td> </tr> <tr> <td>$s.colrow(2,0)</td> <td></td> </tr> <tr> <td>$s[0;2]</td> <td>Raku syntax</td> </tr> <tr> <td>$s&lt;c1&gt;</td> <td>Excel syntax</td> </tr> <tr> <td>$s&lt;C1&gt;</td> <td>Excel syntax</td> </tr>
 </tbody>
 </table>
 
@@ -137,7 +138,7 @@ The data model is based on the one described and used in Perl module Spreadsheet
           :
           :
 
-The 'attr' array (shown following) provides much cell formatting data which enables a fair amount of `xlsx` formatting upon writes.
+The 'attr' array provides much cell formatting data which enables a fair amount of automatic `xlsx` formatting upon writes. An example follows:
 
     attr   =>
     [
@@ -185,12 +186,12 @@ The 'attr' array (shown following) provides much cell formatting data which enab
 AUTHOR
 ======
 
-Tom Browder <tom.browder@gmail.com>
+Tom Browder <tbrowder@acm.org>
 
 COPYRIGHT AND LICENSE
 =====================
 
-Copyright 2020 Tom Browder
+Copyright &#x00A9; 2020-2022 Tom Browder
 
-This library is free software; you can redistribute it and/or modify it under the Artistic License 2.0.
+This library is free software; you may redistribute it or modify it under the Artistic License 2.0.
 
