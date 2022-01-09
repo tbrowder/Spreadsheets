@@ -1,9 +1,6 @@
 #!/usr/bin/env raku
 
-use Spreadsheet::Read:from<Perl5>;
 use Text::Utils :normalize-string;
-#use Data::Dump;
-#use Data::Dump::Tree;
 
 constant $SPACES = '    ';
 
@@ -39,8 +36,56 @@ class Workbook {
 
     # convenience attrs
     has Sheet @.Sheet; # array of Sheet objects
+    # input file attrs:
     has $.basename = '';
     has $.path     = '';
+
+    method write(:$file!, :$use-template, :$force, :$debug) {
+        # The output file name must end in '.xlsx' or '.csv' and
+        # it must not exist (unless the 'force' option is true).
+        my $tmpl = $use-template ?? $use-template !! 0;
+        my $typ;
+        my $ok = 0;
+        if  $file ~~ /'.' (\S+) $/ {
+            $typ = ~$0;
+            $typ .= lc;
+            ++$ok if $typ eq 'xlsx';
+            ++$ok if $typ eq 'csv';
+        }
+        if not $ok {
+            my $valid-types = "'xlsx' or 'csv'";
+            note "FATAL: Unable to write spreadsheet files without a valid extension of: $valid-types";
+            exit;
+        }
+        # templates aren't usable without an xlsx output file
+        # ensure the desired template is available
+        if $use-template and $typ eq 'csv' {
+            note "NOTE: Templates cannot be used with 'csv' output files.";
+        }
+        elsif $use-template {
+            note "FATAL: Unable to find spreadsheet template '$tmpl'";
+            exit;
+        }
+
+        if $file.IO.e {
+            if $force {
+          
+            }
+            else {
+            }
+        }
+  
+        if $typ eq 'xlsx' {
+        }
+        elsif $typ eq 'csv' {
+        }
+        else {
+            note "FATAL: Unable to write spreadsheet files with an extension of '$typ'.";
+            exit;
+        }
+
+        #use Excel::Writer::XLSX:from<Perl5>;
+    }
 
     method dump(:$index!, :$debug) {
         say "DEBUG: dumping workbook index $index, file basename: {$.basename}";
@@ -66,9 +111,10 @@ class Workbook {
 }
 
 class WorkbookSet {
+    use Spreadsheet::Read:from<Perl5>;
+
     #| an array of "immutable" input Workbook objects that can be written again under a new name
     has Workbook @.sources;
-    # not needed: has $.last-source-index = -1; # increment as source workbooks are added
     #   use "@.sources.tail" for the last object, use "@.sources.end" for the last index number
 
     #| a hash of info on files read or written and their associated Workbook locations
@@ -76,7 +122,7 @@ class WorkbookSet {
 
     #| an array of Workbook objects capable of being written
     has Workbook @.products;
-    # not needed: has $.last-product-index = -1; # increment as product workbooks are added
+    #   use "@.products.tail" for the last object, use "@.products.end" for the last index number
 
     method dump(:$debug) {
         my $ns = @.sources.elems;
@@ -96,13 +142,32 @@ class WorkbookSet {
         }
     }
 
+    method write(:$file!, Workbook :$template, :$force, :$debug) {
+        # for now only xlsx files can be written
+        if $file !~~ /'.xlsx'$/ {
+            note "FATAL: Output files MUST be xlsx format with '.xlsx' file extension.";
+            note "       You chose '$file'";
+            exit;
+        }
+        # make sure the file isn't already in the hash
+        my $basename = $file.IO.basename;
+        my $path     = $file.IO.absolute;
+        if %.files{$basename}:exists {
+            note "WARNING: File '$file' has already been read or written.";
+            return;
+        }
+        if !$path.IO.f {
+            note "FATAL: File '$file' cannot be read.";
+            exit;
+        }
+    }
+
     method read(:$file!, :$debug) {
         # make sure the file isn't already in the hash
         my $basename = $file.IO.basename;
         my $path     = $file.IO.absolute;
-
         if %.files{$basename}:exists {
-            note "WARNING: File '$file' has already been read.";
+            note "WARNING: File '$file' has already been read or written.";
             return;
         }
         if !$path.IO.f {
@@ -110,31 +175,38 @@ class WorkbookSet {
             exit;
         }
 
-        # figure out the correct workbook object to use
-        %.files{$basename}<path>         = $path;
-        %.files{$basename}<source-index> = ++$!last-source-index;
         my $wb = Workbook.new: :$basename, :$path;
         @.sources.push: $wb;
-        collect-file-data(:$path, :$wb, :$debug);
 
+        # figure out the correct workbook object to use
+        %.files{$basename}<path>         = $path;
+        # use "@.sources.tail" for the last object, use "@.sources.end" for the last index number
+        %.files{$basename}<source-index> = @.sources.end;
+        %.files{$basename}<written> = 1;
+
+        collect-file-data(:$path, :$wb, :$debug);
     }
 }
 
 class Cell {
-    # should a Cell know its array position? just in case:
+    # a Cell knows its array position
     has $.i is rw; # row index, zero-based
     has $.j is rw; # col index, zero-based
 
+    #| holds a formatting object generated and used by Excel::Writer::XLSX
+    has $.format;
+
     has $.value is rw;
-    has $.format; # as reported by Spreadsheet::Read
+    has $.formatted-value; # as reported by Spreadsheet::Read
 
     # these data come from Spreadsheet::Read's 'attr' key's value
     # which is an array of arrays of hashes
     has %.fmt;
 
-    method copy {
+    method copy(:$no-value, :$debug) {
         # returns a copy of this Cell object
-        my $c = Cell.new: :i($.i), :j($.j), :value($.value), :fmt(%.fmt), :format($.format);
+        my $c = $no-value ?? Cell.new: :i($.i), :j($.j), :fmt(%.fmt), :format($.format)
+                          !! Cell.new: :i($.i), :j($.j), :value($.value), :fmt(%.fmt), :format($.format);
         return $c;
     }
 }
@@ -450,7 +522,7 @@ if !@*ARGS.elems {
     say qq:to/HERE/;
     Usage: {$*PROGRAM.basename} 1|2|3|4|5  [s1 s2]
 
-    Uses the Perl  module Spreadsheet::Read and
+    Uses the Perl module Spreadsheet::Read and
     dumps the data from the selected file number:
     HERE
     my $n = 0;
@@ -482,6 +554,13 @@ for @*ARGS {
 
 my $ifil = @f[$n];
 
+#===================
+# RESTRICTED SCOPE 
+#===================
+{
+
+use Spreadsheet::Read:from<Perl5>;
+
 my $c = WorkbookSet.new;
 $c.read: :file($ifil), :$debug;
 if $debug {
@@ -498,7 +577,7 @@ if $sheet > 1 and $ifil ~~ /:i csv/ {
 
 # note the following read line is critical for interpreting
 # the input data
-my $book = ReadData $ifil,
+my $book = Spreadsheet::Read::ReadData $ifil,
     :attr(1),
     #:clip(1),
     #:strip(3)
@@ -551,6 +630,12 @@ exit;
 %h = $book[1];
 say "Dumping hash in \$book[1]:";
 dump-hash %h;
+
+ 
+} # END SCOPE
+#===================
+# END RESTRICTED SCOPE 
+#===================
 
 #### subroutines ####
 sub dump-array(@a, :$level is copy = 0, :$debug) {
@@ -605,11 +690,13 @@ sub dump-hash(%h, :$level is copy = 0, :$debug) {
             else {
                 note "  DEBUG: with value: '$v'" if $debug;
 
+=begin comment
                 # need to confirm sheet num and its existence
                 my $s = $wb.sheet[$sheet-1];
 
                 # insert key and val in the sheet's %colrow hash
                 $s.colrow{$k} = $v;
+=end comment
             }
         }
         elsif $k eq 'cell' {
@@ -638,8 +725,11 @@ sub dump-hash(%h, :$level is copy = 0, :$debug) {
 }
 
 sub collect-file-data(:$path, Workbook :$wb!, :$debug) {
+    use Spreadsheet::Read:from<Perl5>;
+
     #my $pbook = ReadData $path, :attr, :clip, :strip(3); # array of hashes
-    my $pbook = ReadData $path, :attr; #, :clip, :strip(3); # array of hashes
+    my $pbook = Spreadsheet::Read::ReadData($path, 'attr' => 1); #, :clip, :strip(3); # array of hashes
+
     my $ne = $pbook.elems;
     say "\$book has $ne elements indexed from zero" if $debug;
     my %h = $pbook[0];
@@ -810,7 +900,7 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
         # other attributes
         attr     => 0, # array
         merged   => 0, # array
-        cell     => 0, # 2 x 2 array
+        cell     => 0, # M x N array
     ];
 
     my %keys-seen = %known-keys;
@@ -871,7 +961,7 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
                 }
                 if $t ~~ /Str/ {
                     say "    gisting string at col $j:";
-                    say $c.gist;
+                    say $aa.gist;
                     next;
                 }
 
@@ -914,7 +1004,7 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
                     for @c -> $d {
                         $t = $d.^name;
                         say "      \$d element type: $t":
-                        my $e = $c // '';
+                        my $e = $d // '';
                         $t = $e.^name;
                         if $t ~~ /Hash/ {
                             my %h = %($e) // %();
@@ -1030,3 +1120,13 @@ sub get-typ-and-val($v, :$debug) {
     }
     return ($t, $vv, $ne);
 }
+
+sub colrow2cell($a1-id, :$debug) {
+    # Given an Excel A1 style colrow id, transform it to zero-based
+    # row/col form.
+    my ($i, $j);
+
+
+    return $i, $j;
+}
+

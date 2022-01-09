@@ -38,10 +38,23 @@ for @*ARGS {
 }
 
 my $ifil = @f[$n];
+
+=begin comment
 use Spreadsheet::Read:from<Perl5>;
 my $wb = Spreadsheet::Read.new($ifil) ;
 my %sheet = %($wb.sheet(1));
-
 say %sheet.gist;
 say "The above data were in file '@f[$n]'";
+=end comment
+
+my $h = get-hash $ifil;
+say $h.gist;
+say "The above data were in file '$ifil'";
+
+### SUBROUTINES ###
+sub get-hash($file, :$debug) {
+    use Spreadsheet::Read:from<Perl5>;
+    my $h = ReadData $file, :attr;
+    return $h;
+}
 

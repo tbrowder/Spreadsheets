@@ -5,8 +5,7 @@
 # reverse ('(c)'), September 2010, John McNamara, jmcnamara@cpan.org
 #
 
-use Excel;
-use Excel::Utility;
+use Spreadsheets;
 
 use Test;
 
