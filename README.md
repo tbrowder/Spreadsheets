@@ -18,7 +18,7 @@ $book.write: :file<myfile.xlsx>;
 DESCRIPTION
 ===========
 
-Spreadsheet is intended to be a reasonably universal spreadsheet reader and writer for the formats shown below. It relies on some well-tested Perl modules as well as a Raku module that wraps the *libcsv* library available on Debian and other Linux distributions.
+Spreadsheet is intended to be a reasonably universal spreadsheet reader and writer for the formats shown below. It relies on some well-tested Perl modules.
 
 Its unique strength is a common set of classes to make spreadsheet data use easy regardless of the file format being used.
 
@@ -30,11 +30,11 @@ Supported formats
 <th>Read</th> <th>Write</th> <th>Notes</th>
 </tr></thead>
 <tbody>
-<tr> <td>CSV</td> <td>*CSV</td> <td></td> </tr> <tr> <td>ODS</td> <td>*ODS</td> <td></td> </tr> <tr> <td>SXC</td> <td>*SXC</td> <td></td> </tr> <tr> <td>XLS</td> <td>*XLS</td> <td></td> </tr> <tr> <td>XLSX</td> <td>XLSX</td> <td></td> </tr>
+<tr> <td>CSV</td> <td>CSV</td> <td></td> </tr> <tr> <td>ODS</td> <td>*ODS</td> <td></td> </tr> <tr> <td>SXC</td> <td>*SXC</td> <td></td> </tr> <tr> <td>XLS</td> <td>*XLS</td> <td></td> </tr> <tr> <td>XLSX</td> <td>XLSX</td> <td></td> </tr>
 </tbody>
 </table>
 
-Note: Formats marked with an asterisk are not yet implemented (NYI). The author does not intend to expend any effort on writing those formats unless he gets a Pull Request (PR) which provides such a capability.
+Note: Formats marked with an asterisk are not yet implemented (NYI). The author does not intend to expend any effort on developing the NYI write formats unless he gets a Pull Request (PR) which provides such a capability.
 
 System requirements
 -------------------
@@ -44,9 +44,15 @@ System requirements
 <th>Perl modules</th> <th>Debian package</th> <th>Notes</th>
 </tr></thead>
 <tbody>
-<tr> <td>Spreadsheet::Read</td> <td>libspreadsheet-read-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ParseExcel</td> <td>libspreadsheet-parseexcel-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ParseXLSX</td> <td>libspreadsheet-parsexlsx-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ReadSXC</td> <td>libspreadsheet-readsxc-perl</td> <td></td> </tr> <tr> <td>Text::CSV</td> <td>libtext-csv-perl</td> <td></td> </tr> <tr> <td>Excel::Writer::XSLX</td> <td>libexcel-writer-xlsx-perl</td> <td></td> </tr>
+<tr> <td>Spreadsheet::Read</td> <td>libspreadsheet-read-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ParseExcel</td> <td>libspreadsheet-parseexcel-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ParseXLSX</td> <td>*libspreadsheet-parsexlsx-perl</td> <td></td> </tr> <tr> <td>Spreadsheet::ReadSXC</td> <td>libspreadsheet-readsxc-perl</td> <td></td> </tr> <tr> <td>Text::CSV</td> <td>libtext-csv-perl</td> <td></td> </tr> <tr> <td>Excel::Writer::XSLX</td> <td>*libexcel-writer-xlsx-perl</td> <td></td> </tr>
 </tbody>
 </table>
+
+* NOTE: Ubuntu users do not have access to the packages marked with an asterisk. Instead, they can do the following:
+
+    sudo apt-get install -y cpanminus
+    sudo cpanm Spreadsheet::ParseXLSX
+    sudo cpanm Excel::Writer::XLSX
 
 Design
 ------
@@ -117,6 +123,8 @@ The data model is based on the one described and used in Perl module Spreadsheet
             [ undef, 1 ],
             [ undef, undef, undef, undef, undef, "Nugget" ],
             ],
+          # The following 'attr' array is expanded during default reads by the Raku
+          # Spreadsheet module. See an example in the next code section.
           attr    => [],
           merged  => [],
           active  => 1,
@@ -128,6 +136,51 @@ The data model is based on the one described and used in Perl module Spreadsheet
           label   => "Sheet 2",
           :
           :
+
+The 'attr' array (shown following) provides much cell formatting data which enables a fair amount of `xlsx` formatting upon writes.
+
+    attr   =>
+    [
+      undef,
+      [ undef, {
+        type    => "numeric",
+        fgcolor => "#ff0000",
+        bgcolor => undef,
+        font    => "Arial",
+        size    => undef,
+        format  => "## ##0.00",
+        halign  => "right",
+        valign  => "top",
+        uline   => 0,
+        bold    => 0,
+        italic  => 0,
+        wrap    => 0,
+        merged  => 0,
+        hidden  => 0,
+        locked  => 0,
+        enc     => "utf-8",
+        },
+      ],
+      [ undef, undef, undef, undef, undef, {
+        type    => "text",
+        fgcolor => "#e2e2e2",
+        bgcolor => undef,
+        font    => "Letter Gothic",
+        size    => 15,
+        format  => undef,
+        halign  => "left",
+        valign  => "top",
+        uline   => 0,
+        bold    => 0,
+        italic  => 0,
+        wrap    => 0,
+        merged  => 0,
+        hidden  => 0,
+        locked  => 0,
+        enc     => "iso8859-1",
+        },
+      ],
+    ],
 
 AUTHOR
 ======
