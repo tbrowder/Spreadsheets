@@ -1,25 +1,28 @@
 {
-  "auth" : "cpan:TBROWDER",
-  "authors" : [
+  "auth": "zef:tbrowder",
+  "authors": [
     "Tom Browder"
   ],
-  "build-depends" : [ ],
-  "depends" : [
+  "build-depends": [
+  ],
+  "depends": [
     "JSON::Hjson",
     "Inline::Perl5"
   ],
-  "description" : "A universal, multiple spreadsheet reader/writer",
-  "license" : "Artistic-2.0",
-  "name" : "Spreadsheets",
-  "perl" : "6.d",
-  "provides" : {
-    "Spreadsheets" : "lib/Spreadsheets.rakumod"
+  "description": "A universal, multiple spreadsheet reader/writer",
+  "license": "Artistic-2.0",
+  "name": "Spreadsheets",
+  "perl": "6.d",
+  "provides": {
+    "Spreadsheets": "lib/Spreadsheets.rakumod"
   },
-  "resources" : [ ],
-  "source-url" : "https://github.com/tbrowder/Spreadsheets.git",
-  "tags" : [ ],
-  "test-depends" : [
+  "resources": [
+  ],
+  "source-url": "https://github.com/tbrowder/Spreadsheets.git",
+  "tags": [
+  ],
+  "test-depends": [
     "Test::META"
   ],
-  "version" : "0.0.1"
+  "version": "0.0.1"
 }
