@@ -11,10 +11,22 @@ SYNOPSIS
 ```raku
 use Spreadsheets;
 my $book = Spreadsheets.new;
-$book.read: :file<myfile.cvs>, :has-header;
-$book.read: :file<mytmplfile.xlsx>, :is-template<a>;
-$book.write: :file<myfile.xlsx>, :use-template<a>;
+$book.read: :file<somefile.xlsx>, :has-header;
+# OR
+$book.read: :file<somefile.cvs>, :has-header;
+# OR
+$book.read: :file<somefile.ods>, :has-header;
+# OR
+$book.read: :file<somefile.xls>, :has-header;
+# OR
+$book.read: :file<somefile.sxc>, :has-header;
 ```
+
+Not yet implemented (NYI) but planned, you can use a template for transforming an existing worksheet into an XLSX file. For example, use one the files above for all or partial data input (most practically a CSV file), define the transforms for output as cells in an XLSX template file, then generate the desired XLSX format file, and generate that file. Accomplish that by adding the template and final output file to one of the read lines:
+
+    $book.read: :file<somefile.cvs>, :has-header;
+    $book.read: :file<mytmplfile.xlsx>, :is-template<a>;
+    $book.write: :file<myfile.xlsx>, :use-template<a>;
 
 DESCRIPTION
 ===========

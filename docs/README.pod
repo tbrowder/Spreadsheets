@@ -8,31 +8,25 @@ Spreadsheets - A universal, multiple spreadsheet reader/writer
 
 =begin code :lang<raku>
 use Spreadsheets;
-my $book = Spreadsheets.new;
-$book.read: :file<somefile.xlsx>, :has-header;
-# OR
-$book.read: :file<somefile.cvs>, :has-header;
-# OR
-$book.read: :file<somefile.ods>, :has-header;
-# OR
-$book.read: :file<somefile.xls>, :has-header;
-# OR
-$book.read: :file<somefile.sxc>, :has-header;
+my $book = Spreadsheets.new: :read('somefile.csv');
 =end code
 
-Not yet implemented (NYI) but planned, you can use a template
+The input file may be in either CSV, XLSX, ODS, XLS, or SXC format.
+All input files are assumed to have a header row unless the C<:no-header-row> option is added.
+
+
+Note the name of the module is plural. Not yet fully implemented (NYI) but planned, you can use a template
 for transforming an existing worksheet into an XLSX file.
-For example, use one the files above for all or partial
-data input (most practically a CSV file), define the transforms
+For example, using one or more of the input file formatscabove for all or partial
+data input (most practically using a singlCSV file), define the transforms
 for output as cells in an XLSX template file, then generate
-the desired XLSX format file, and generate that file.
+that file.
 Accomplish that by adding the template and final output
-file to one of the read lines:
+files to the C<Spreadsheets> object:
 
 =begin code
-$book.read: :file<somefile.cvs>, :has-header;
-$book.read: :file<mytmplfile.xlsx>, :is-template<a>;
-$book.write: :file<myfile.xlsx>, :use-template<a>;
+$book.read 'mytmplfile.xlsx', :is-template(1);
+$book.write: 'myfile.xlsx', :use-template(1);
 =end code
 
 =head1 DESCRIPTION
