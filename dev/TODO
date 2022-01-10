@@ -1,3 +1,5 @@
 Tasks for initial release:
 
+0. add more spreadsheets for testing
 1. read an XLSX file (file 1) into a worksheet object
+2. add tests for each type of spreadsheet input

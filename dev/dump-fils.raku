@@ -40,9 +40,9 @@ class Workbook {
     has $.basename = '';
     has $.path     = '';
 
+    #| The output file name must end in '.xlsx' or '.csv' and
+    #| it must not exist (unless the 'force' option is true).
     method write(:$file!, :$use-template, :$force, :$debug) {
-        # The output file name must end in '.xlsx' or '.csv' and
-        # it must not exist (unless the 'force' option is true).
         my $tmpl = $use-template ?? $use-template !! 0;
         my $typ;
         my $ok = 0;
@@ -199,8 +199,8 @@ class Cell {
     has $.value is rw;
     has $.formatted-value; # as reported by Spreadsheet::Read
 
-    # these data come from Spreadsheet::Read's 'attr' key's value
-    # which is an array of arrays of hashes
+    #| these data come from Spreadsheet::Read's 'attr' key's value
+    #| which is an array of arrays of hashes
     has %.fmt;
 
     method copy(:$no-value, :$debug) {
@@ -494,7 +494,7 @@ class Sheet {
 
     }
 
-    # check for and handle Excel colrow ids
+    #| check for and handle Excel colrow ids
     method add-colrow-hash($k, $v) {
         %.colrow; # a hash indexed by Excel A1 label (col A, row 1)
         if %.colrow{$k}:exists {
@@ -520,7 +520,7 @@ class Sheet {
 my $sheet = 0;
 if !@*ARGS.elems {
     say qq:to/HERE/;
-    Usage: {$*PROGRAM.basename} 1|2|3|4|5  [s1 s2]
+    Usage: {$*PROGRAM.basename} 1|2|3|4|5  [s1 s2] [debug]
 
     Uses the Perl module Spreadsheet::Read and
     dumps the data from the selected file number:
@@ -554,9 +554,9 @@ for @*ARGS {
 
 my $ifil = @f[$n];
 
-#===================
-# RESTRICTED SCOPE 
-#===================
+#==============================================
+# RESTRICTED SCOPE FOR SELECTED PERL MODULE USE
+#==============================================
 {
 
 use Spreadsheet::Read:from<Perl5>;
@@ -566,10 +566,8 @@ $c.read: :file($ifil), :$debug;
 if $debug {
     $c.dump;
 }
-exit;
+say "DEBUG early exit after dump"; exit;
 
-
-#if $sheet > 1 and $n != 4 {
 if $sheet > 1 and $ifil ~~ /:i csv/ {
     say "FATAL: Only one sheet in a csv file";
     exit;
@@ -633,12 +631,12 @@ dump-hash %h;
 
  
 } # END SCOPE
-#===================
-# END RESTRICTED SCOPE 
-#===================
+#==================================================
+# END RESTRICTED SCOPE FOR SELECTED PERL MODULE USE
+#==================================================
 
 #### subroutines ####
-sub dump-array(@a, :$level is copy = 0, :$debug) {
+sub dump-array(@a, :$level is copy = 0, :$debug) is export {
     my $sp = $level ?? $SPACES x $level !! '';
     for @a.kv -> $i, $v {
         my $t = $v.^name;
@@ -668,9 +666,9 @@ sub dump-array(@a, :$level is copy = 0, :$debug) {
             say "$sp   value: '$s'";
         }
     }
-}
+} # sub dump-array
 
-sub dump-hash(%h, :$level is copy = 0, :$debug) {
+sub dump-hash(%h, :$level is copy = 0, :$debug) is export {
     my $sp = $level ?? $SPACES x $level !! '';
     for %h.keys.sort -> $k {
         my $v = %h{$k} // '';
@@ -722,9 +720,9 @@ sub dump-hash(%h, :$level is copy = 0, :$debug) {
             say "$sp   value: '$s'";
         }
     }
-}
+} # sub dump-hash
 
-sub collect-file-data(:$path, Workbook :$wb!, :$debug) {
+sub collect-file-data(:$path, Workbook :$wb!, :$debug) is export {
     use Spreadsheet::Read:from<Perl5>;
 
     #my $pbook = ReadData $path, :attr, :clip, :strip(3); # array of hashes
@@ -748,11 +746,11 @@ say @rows.gist;
         $wb.Sheet.push: $s;
         collect-sheet-data %h, :$index, :$s, :$debug;
     }
-}
+} # sub collect-file-data
 
-sub collect-book-data(%h, Workbook :$wb!, :$debug) {
-    # Given the zeroth hash from Spreadsheet::Read and a
-    # Workbook object, collect the meta data for the workbook.
+#| Given the zeroth hash from Spreadsheet::Read and a
+#| Workbook object, collect the meta data for the workbook.
+sub collect-book-data(%h, Workbook :$wb!, :$debug) is export {
 
     constant %known-keys = [
         error    => 0,
@@ -841,9 +839,9 @@ sub collect-book-data(%h, Workbook :$wb!, :$debug) {
     }
 
 
-}
+} # sub collect-book-data
 
-sub get-wb-parsers-array($v) {
+sub get-wb-parsers-array($v) is export {
     my $t = $v.^name; # expect Perl5 Array
     my @a;
     my $val = $v // '';
@@ -865,9 +863,9 @@ sub get-wb-parsers-array($v) {
         return @a;
     }
     die "FATAL: Unexpected non-array type '$t'";
-}
+} # sub get-wb-parsers-array
 
-sub get-wb-sheet-hash($v) {
+sub get-wb-sheet-hash($v) is export {
     my $t = $v.^name; # expect Perl5 Hash
     my %h;
     my $val = $v // '';
@@ -881,12 +879,12 @@ sub get-wb-sheet-hash($v) {
         return %h;
     }
     die "FATAL: Unexpected non-hash type '$t'";
-}
+} # sub get-wb-sheet-hash
 
-sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
-    # Given the sheet's original index, i, the ith hash
-    # from Spreadsheet::Read and a Sheet object, collect
-    # the data for the sheet.
+#| Given the sheet's original index, i, the ith hash
+#| from Spreadsheet::Read and a Sheet object, collect
+#| the data for the sheet.
+sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) is export {
     constant %known-keys = [
         # single-value attributes
         active   => 0,
@@ -1096,16 +1094,16 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) {
         exit;
     }
 
-}
+} # sub collect-sheet-data
 
-sub collect-cell-data($cell, Sheet :$s!, :$debug) {
-    # Given a cell array from Spreadsheet::Read and a
-    # Sheet object, collect the data for the sheet. In
-    # the process, convert the data into rows of cells
-    # with zero-based indexing.
-}
+#| Given a cell array from Spreadsheet::Read and a
+#| Sheet object, collect the data for the sheet. In
+#| the process, convert the data into rows of cells
+#| with zero-based indexing.
+sub collect-cell-data($cell, Sheet :$s!, :$debug) is export {
+} # sub collect-cell-data
 
-sub get-typ-and-val($v, :$debug) {
+sub get-typ-and-val($v, :$debug) is export {
     # Determines the type of $v, then converts
     # $v to either a string with value 'undef'
     # or retains its value.
@@ -1119,14 +1117,14 @@ sub get-typ-and-val($v, :$debug) {
         die "FATAL";
     }
     return ($t, $vv, $ne);
-}
+} # sub get-typ-and-val
 
-sub colrow2cell($a1-id, :$debug) {
+sub colrow2cell($a1-id, :$debug) is export {
     # Given an Excel A1 style colrow id, transform it to zero-based
     # row/col form.
     my ($i, $j);
 
 
     return $i, $j;
-}
+} # sub colrow2cell
 

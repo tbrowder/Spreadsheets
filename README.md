@@ -10,23 +10,17 @@ SYNOPSIS
 
 ```raku
 use Spreadsheets;
-my $book = Spreadsheets.new;
-$book.read: :file<somefile.xlsx>, :has-header;
-# OR
-$book.read: :file<somefile.cvs>, :has-header;
-# OR
-$book.read: :file<somefile.ods>, :has-header;
-# OR
-$book.read: :file<somefile.xls>, :has-header;
-# OR
-$book.read: :file<somefile.sxc>, :has-header;
+my $book = Spreadsheets.new: :read('somefile.csv');
 ```
 
-Not yet implemented (NYI) but planned, you can use a template for transforming an existing worksheet into an XLSX file. For example, use one the files above for all or partial data input (most practically a CSV file), define the transforms for output as cells in an XLSX template file, then generate the desired XLSX format file, and generate that file. Accomplish that by adding the template and final output file to one of the read lines:
+The input file may be in either CSV, XLSX, ODS, XLS, or SXC format. All input files are assumed to have a header row unless the `:no-header-row` option is added.
 
-    $book.read: :file<somefile.cvs>, :has-header;
-    $book.read: :file<mytmplfile.xlsx>, :is-template<a>;
-    $book.write: :file<myfile.xlsx>, :use-template<a>;
+Note the name of the module is plural because the Spreadsheets object can hold multiple spreadsheet files. There are features planned, but not yet fully implemented (NYI), that allow you to use a template for transforming an existing worksheet into a new XLSX file. For example, using one or more of the input file format cabove for all or partial data input (most practically using a singlCSV file), define the transforms for output as cells in an XLSX template file, then generate that file. Accomplish that by adding the template and final output files to the `Spreadsheets` object:
+
+    use Spreadsheets;
+    my $book = Spreadsheets.new: 'somefile.csv';
+    $book.read 'mytmplfile.xlsx', :is-template(1);
+    $book.write: 'myfile.xlsx', :use-template(1);
 
 DESCRIPTION
 ===========
@@ -111,7 +105,7 @@ Spreadsheet arrays may be acccessed in various ways to suit the tastes of the us
 Data model
 ----------
 
-The data model is based on the one described and used in Perl module Spreadsheet::Read. Its data elements are used to populate the classes described above (with adjustments to transform the 1-indexed rows and columns to the zero-indexed rows and columns of this module).
+The data model is based on the one described and used in Perl module `Spreadsheet::Read`. Its data elements are used to populate the classes described above (with adjustments to transform the 1-indexed rows and columns to the zero-indexed rows and columns of this module).
 
     $book = [
         # Entry 0 is the overall control hash
