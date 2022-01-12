@@ -2,6 +2,7 @@ unit module Spreadsheets::Classes;
 
 class WorkbookSet {...}
 class Sheet {...}
+
 class Workbook is export {
     # keys in the meta hash (book[0])
     #   with string values
@@ -28,6 +29,7 @@ class Workbook is export {
     has $.basename = '';
     has $.path     = '';
 
+=begin comment
     #| The output file name must end in '.xlsx' or '.csv' and
     #| it must not exist (unless the 'force' option is true).
     method write(:$file!, :$use-template, :$force, :$debug) {
@@ -96,10 +98,14 @@ class Workbook is export {
     method copy {
         # returns a copy of this Workbook object
     }
-}
+=end comment
+
+} # end of class Workbook
 
 class WorkbookSet is export {
     use Spreadsheet::Read:from<Perl5>;
+
+=begin comment
 
     #| an array of "immutable" input Workbook objects that can be written again under a new name
     has Workbook @.sources;
@@ -174,7 +180,9 @@ class WorkbookSet is export {
 
         collect-file-data(:$path, :$wb, :$debug);
     }
-}
+=end comment
+
+} # class WorkbookSet
 
 class Cell is export {
     # a Cell knows its array position
