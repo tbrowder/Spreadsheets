@@ -1,512 +1,499 @@
 unit class Spreadsheets;
 
-#### SUBROUTINES ####
+use Spreadsheets::Classes;
+use Spreadsheets::XLSX-Utils;
 
-# A1 format utilities converted from the Perl code
-# in module Excel::Writer::XSLX:
+constant $SPACES = '    ';
 
-# some useful regexes
-# use them as named captures like this:
-#   if $str ~~ /^ <cell> $/ {
-#       my $key = ~$/;
-#   }
+#### subroutines ####
+sub dump-array(@a, :$level is copy = 0, :$debug) is export {
+    my $sp = $level ?? $SPACES x $level !! '';
+    for @a.kv -> $i, $v {
+        my $t = $v.^name;
 
-our token cell       is export { :i <[A..Z]>+ <[1..9]> \d* }               # no hyphens
-our token line-range is export { <cell> '-' <cell> }                       # one hyphen
-our token rect-range is export { <cell> '-' <cell> '-' <cell> '-' <cell> } # three hyphens
-our token cell-group is export { <cell> [ <[,\s]>+ <cell> ]+ }             # a group of two or more cells
-
-# a utility class for local use
-# TODO: combine with class Cell?
-class C {
-    has Str $.A1; # is rw; # A1..ZZZ999 # MaxColsMaxRows
-    # use these for sorting:
-    has Int $.r ; # is rw; # 1..MaxRows
-    has Str $.c ; # is rw; # A..MaxCols
-
-    # 0-indexed rowcol
-    has $.row;
-    has $.col;
-
-    submethod TWEAK {
-        if $!A1 ~~ /^ (<[a..z]>+) (<[1..9]> \d*) $/ {
-            $!c = ~$0;
-            $!r = +$1;
-            ($!row, $!col) = xl-cell-to-rowcol $!A1;
+        print "$sp index $i, value type: $t";
+        if $t ~~ /Hash/ {
+            my $ne = $v.elems;
+            say ", num elems: $ne";
+            dump-hash $v, :level(++$level), :$debug;
         }
-        else {
-            die "FATAL: Unexpected format (must use lower-case) in cell A1 label '$!A1'";
-        }
-     }
-
-     sub sort-cols(C @c) {
-     }
-
-     sub sort-rows(C @c) {
-     }
-}
-
-sub split-ranges(%fmt, :$debug --> Hash) is export {
-    my %new-fmt;
-
-    # Cell "A1" keys like "B1-B6" and "B1-B4-D1-D4" are ranges and
-    # need to be split into their own key/array.
-    # We also handle groups.
-    KEY: for %fmt.keys.sort -> $k is copy {
-        my $is-cell-key = 0;
-        my $is-cell-grp = 0;
-
-        note "DEBUG-2: hjson key: '$k'" if $debug;
-        my $v = %fmt{$k};
-        my $vtyp = $v.^name;
-
-        my @k;
-        if $k ~~ /^ <rect-range> $/ {
-            my $c = ~$/;
-            @k = split '-', $c;
-            ++$is-cell-key;
-        }
-        elsif $k ~~ /^ <line-range> $/ {
-            my $c = ~$/;
-            @k = split '-', $c;
-            ++$is-cell-key;
-        }
-        elsif $k ~~ /^ <cell-group> $/ {
-            my $c = ~$/;
-            # convert commas to spaces
-            $c ~~ s:g/','/ /;
-            @k = $c.words;
-            ++$is-cell-key;
-            ++$is-cell-grp;
-        }
-        elsif $k ~~ /^ <cell> $/ {
-            my $c = ~$/;
-            @k.push: $c;
-            ++$is-cell-key;
-        }
-
-        note "  its value type is '$vtyp'" if $debug;
-        # if it's a cell key or range, split it, otherwise just pass it on
-        if $is-cell-key  {
-            my $ncells = @k.elems;
-
-            say "DEBUG: we have one or more 'A1' cell keys and should have an array or string as its shared value" if $debug;
-
-            if $ncells == 1 {
-                %new-fmt{$k} = $v;
-                next KEY;
+        elsif $t ~~ /Array/ {
+            # we may have an undef array
+            my $val = $v // '';
+            if $val {
+                my $ne = $v.elems;
+                say ", num elems: $ne";
+                dump-array $v, :level(++$level), :$debug;
             }
-
-            # a cell group key: the values will be assigned to all the
-            # keys in the group
-            if $is-cell-grp {
-                # the cells have already been split out above
-                for @k -> $k {
-                    %new-fmt{$k} = $v;
-                }
-                next KEY;
+            else {
+                say();
+                say "$sp   (undef array)";
             }
+        }
+        else {
+            say();
+            my $s = $v // '';
+            say "$sp   value: '$s'";
+        }
+    }
+} # sub dump-array
 
-            # a cell range key: the values will be assigned to all the
-            # keys in the range
-            my @ckeys = split-range @k, :$debug;
-            for @ckeys -> $ck {
-                %new-fmt{$ck} = $v;
+sub dump-hash(%h, :$level is copy = 0, :$debug) is export {
+    my $sp = $level ?? $SPACES x $level !! '';
+    for %h.keys.sort -> $k {
+        my $v = %h{$k} // '';
+        my $t = $v.^name;
+
+
+        if $k ~~ /^ (<[A..Z]>+) (<[1..9]> <[0..9]>?) $/ {
+            # collect the Excel A1 hashes
+            my $col = ~$0;
+            my $row = +$1;
+            my $colrow = $col ~ $row.Str;
+
+            note "DEBUG: found A1 Excel colrow id: '$k'" if $debug;
+            if $t !~~ Str {
+                note "WARNING: its value type is not Str it's: $t";
             }
-            next KEY;
+            else {
+                note "  DEBUG: with value: '$v'" if $debug;
+
+=begin comment
+                # need to confirm sheet num and its existence
+                my $s = $wb.sheet[$sheet-1];
+
+                # insert key and val in the sheet's %colrow hash
+                $s.colrow{$k} = $v;
+=end comment
+            }
         }
-        elsif $k.contains('-') {
-            die "FATAL: Unrecognized cell grouping '$k' (hyphens only used in valid cell keys)"
+        elsif $k eq 'cell' {
+            # collect the cell[col][row] values
         }
-        else {
-            # not a cell key
-            %new-fmt{$k} = $v;
+
+        say "$sp key: $k, value type: $t";
+        if $t ~~ /Hash/ {
+            dump-hash $v, :level(++$level), :$debug;
         }
-    }
-
-    return %new-fmt;
-
-} # end of: sub split-ranges
-
-sub split-linear(@bcells, :$debug --> Array) is export {
-    # the two @bcells are the bounding cells of a linear range
-    die "FATAL: there should be two cells but there are {@bcells.elems}" if @bcells.elems != 2;
-
-    # if there are two cells (one hyphen, linear range) it's easy:
-    my @c;
-    for @bcells -> $A1 {
-        # if we have been rigorous in our plan the alpha chars
-        # should be lower-case
-        my $c = C.new: :$A1;
-        if $debug {
-            note "DEBUG: linear range, cell.A1: {$c.A1}";
-        }
-        @c.push: $c;
-    }
-
-    my ($L, $R, $T, $B); # range end cells: left/right (row range), top/bottom (column range)
-
-    enum RangeStat <IsRow IsCol>;
-    my $range-type;
-    if @c.head.r == @c.tail.r {
-        $range-type = IsRow;
-        $L = shift @c;
-        $R = shift @c;
-        # ensure the left col is alphabetically less than the right col
-        if $L.c gt $R.c  {
-            ($L, $R) = ($R, $L);
-        }
-    }
-    elsif @c.head.c eq @c.tail.c {
-        $range-type = IsCol;
-        $T = shift @c;
-        $B = shift @c;
-        # ensure the top row is less than the bottom row
-        if $T.r > $B.r  {
-            ($T, $B) = ($B, $T);
-        }
-    }
-    else {
-        die "FATAL: the two cells '{@c.head.A1}' and '{@c.tail.A1}' are not a linear range";
-    }
-
-    my ($start-A1, $end-A1);
-    if $range-type ~~ IsCol {
-        $start-A1 = $T.A1;
-        $end-A1   = $B.A1;
-    }
-    elsif $range-type ~~ IsRow {
-        $start-A1 = $L.A1;
-        $end-A1   = $R.A1;
-    }
-
-    =begin comment
-    {
-        # this is mainly a debug check
-        my ($alpha-start, $int-start, $alpha-end, $int-end);
-        if $start ~~ /^ :i (<[A..Z]>+) (<[1..9]> \d*) $/ {
-            $alpha-start = ~$0;
-            $int-start   = +$1;
+        elsif $t ~~ /Array/ {
+            # we may have an undef array
+            my $val = $v // '';
+            if $val {
+                dump-array $v, :level(++$level), :$debug;
+            }
+            else {
+                say "$sp   (undef array)";
+            }
         }
         else {
-            die "FATAL: Unexpected A1 format: '$start'";
-        }
-
-        if $end ~~ /^ :i (<[A..Z]>+) (<[1..9]> \d*) $/ {
-            $alpha-end = ~$0;
-            $int-end   = +$1;
-        }
-        else {
-            die "FATAL: Unexpected A1 format: '$end'";
+            my $s = $v // '';
+            say "$sp   value: '$s'";
         }
     }
-    =end comment
+} # sub dump-hash
 
-    my ($start-row, $start-col, $srow-abs, $scol-abs) = xl-cell-to-rowcol $start-A1;
-    my ($end-row  , $end-col  , $erow-abs, $ecol-abs) = xl-cell-to-rowcol $end-A1;
+sub collect-file-data(:$path, Workbook :$wb!, :$debug) is export {
+    use Spreadsheet::Read:from<Perl5>;
 
-    my @A1;
-    if $start-row == $end-row {
-        # column range, e.g., "A9:Z9"
-        for $start-col .. $end-col -> $col {
-            my $A1 = xl-rowcol-to-cell $start-row, $col;
-            @A1.push: $A1;
+    #my $pbook = ReadData $path, :attr, :clip, :strip(3); # array of hashes
+    my $pbook = Spreadsheet::Read::ReadData($path, 'attr' => 1); #, :clip, :strip(3); # array of hashes
+
+    my $ne = $pbook.elems;
+    say "\$book has $ne elements indexed from zero" if $debug;
+    my %h = $pbook[0];
+    collect-book-data %h, :$wb, :$debug;
+
+=begin comment
+my @rows = Spreadsheet::Read::rows($pbook[1]<cell>);
+say @rows.gist;
+#say "DEBUG exit";exit;
+=end comment
+
+    # get all the sheet data
+    for 1..^$ne -> $index {
+        %h    = $pbook[$index];
+        my $s = Sheet.new;
+        $wb.Sheet.push: $s;
+        collect-sheet-data %h, :$index, :$s, :$debug;
+    }
+} # sub collect-file-data
+
+#| Given the zeroth hash from Spreadsheet::Read and a
+#| Workbook object, collect the meta data for the workbook.
+sub collect-book-data(%h, Workbook :$wb!, :$debug) is export {
+
+    constant %known-keys = [
+        error    => 0,
+        quote    => 0,
+        sepchar  => 0,
+        sheets   => 0,
+
+        parser   => 0,
+        type     => 0,
+        version  => 0,
+
+        parsers  => 0, # not used at the moment as it appears to be redundant
+        sheet    => 0,
+    ];
+
+    my %keys-seen = %known-keys;
+    say "DEBUG: collecting book meta data..." if $debug;
+    for %h.kv -> $k, $v {
+        say "  found key '$k'..." if $debug;
+        note "WARNING: Unknown key '$k' in workbook meta data" unless %known-keys{$k}:exists;
+        if $k eq 'error' {
+            ++%keys-seen{$k};
+            $wb.error = $v;
+        }
+        elsif $k eq 'parser' {
+            ++%keys-seen{$k};
+            $wb.parser = $v;
+        }
+        elsif $k eq 'quote' {
+            ++%keys-seen{$k};
+            $wb.quote = $v;
+        }
+        elsif $k eq 'sepchar' {
+            ++%keys-seen{$k};
+            $wb.sepchar = $v;
+        }
+        elsif $k eq 'sheets' {
+            ++%keys-seen{$k};
+            $wb.sheets = $v;
+        }
+        elsif $k eq 'type' {
+            ++%keys-seen{$k};
+            $wb.type = $v;
+        }
+        elsif $k eq 'version' {
+            ++%keys-seen{$k};
+            $wb.version = $v;
+        }
+        # special handling required
+        elsif $k eq 'sheet' {
+            ++%keys-seen{$k};
+            $wb.sheet = get-wb-sheet-hash $v;
+        }
+        # special handling required
+        elsif $k eq 'parsers' {
+            ++%keys-seen{$k};
+            # This appears to be redundant and will
+            # be ignored as long as it only contains
+            # one element. The one element is an anonymous
+            # hash of three key/values (parser, type, version), all
+            # which are already single-value attributes.
+            my $ne = $v.elems;
+            if $ne != 1 {
+                die "FATAL: Expected one element but got $ne elements";
+            }
         }
     }
-    elsif $start-col == $end-col {
-        # row range, e.g., "A1:A9"
-        for $start-row .. $end-row -> $row {
-            my $A1 = xl-rowcol-to-cell $row, $start-col;
-            @A1.push: $A1;
-        }
-    }
-    else {
-        die "FATAL: unexpected non-linear cell range: '{$start-A1}:{$end-A1}'";
-    }
 
-    return @A1;
-
-} # end of: sub split-linear
-
-sub split-rectangular(@bcells, :$debug --> Array) is export {
-    note "DEBUG: In sub split-rectangular with input cells: @bcells[]" if $debug;
-
-    # the four @bcells are the bounding cells of a rectangular range
-    die "FATAL: there should be four cells but there are {@bcells.elems}" if @bcells.elems != 4;
-
-    # We assume the cells are such that they satisfy the following
-    # rules:
-    #   there must be two each of the two "A" (column) values
-    #   there must be two each of the two "1" (row) values
-
-    # The upper-left corner must have the "smallest" letter and number
-    # and the lower-right must have the "largest."  The remaining
-    # cells can be placed thusly: the cell with the same alpha as
-    # upper-left must be the lower-left, and the remaining cell must
-    # be the upper-right.
-
-    # create an array of the cell objects:
-    my @c;
-    for @bcells -> $A1 {
-        # if we have been rigorous in our plan the alpha chars
-        # should be lower-case
-        my $c = C.new: :$A1;
-        @c.push: $c;
-    }
-
-    # sort the cells by row (numerically)
-    my @a = @c.sort({$^a.r cmp $^b.r});
-
-    if $debug  {
-        my @d;
-        @d.push($_.A1) for @a;
-        note "DEBUG: In sub split-rectangular with row-sorted input cell objects: @d[]";
-    }
-
-
-    my ($ul, $ur, $ll, $lr);
-    # the top row
-    $ul = shift @a;
-    $ur = shift @a;
-    # compare the columns alphabetically and swap if need be
-    if $ul.c gt $ur.c {
-        ($ul, $ur) = ($ur, $ul);
-    }
-
-    # the bottom row
-    $ll = shift @a;
-    $lr = shift @a;
-    # compare the columns alphabetically and swap if need be
-    if $ll.c gt $lr.c {
-        ($ll, $lr) = ($lr, $ll);
-    }
-
-    # check we have a rectangle
-    my $err;
-    if $ul.r !== $ur.r {
-        note "WARNING: upper-left cell {$ul.A1} row is not same as upper-right cell {$ur.A1}";
+    # ensure we have the parser, type, and version values as a sanity
+    # check on our understanding of the read data format
+    my $err = 0;
+    if not $wb.parser {
         ++$err;
+        note "WARNING: no 'parser' found in meta data";
     }
-    if $ll.r !== $lr.r {
-        note "WARNING: lower-left cell {$ll.A1} row is not same as lower-right cell {$lr.A1}";
+    if not $wb.type {
         ++$err;
+        note "WARNING: no 'type' found in meta data";
     }
-    if $ul.c ne $ll.c {
-        note "WARNING: upper-left cell {$ul.A1} column is not same as lower-left cell {$ll.A1}";
+    if not $wb.version {
         ++$err;
-    }
-    if $ur.c ne $lr.c {
-        note "WARNING: upper-right cell {$ur.A1} column is not same as lower-right cell {$lr.A1}";
-        ++$err;
+        note "WARNING: no 'version' found in meta data";
     }
     if $err {
-        my @d;
-        @d.push($_.A1) for $ul, $ur, $ll, $lr;
-        die "FATAL: invalid rectangular range defined by cells: @d[]";
+        note "POSSIBLE BAD READ OF FILE '$wb.path' PLEASE FILE AN ISSUE";
     }
 
 
-    my @A1;
-    # step through each row and treat each as a linear range of
-    # columns
-    my $start-row = $ul.r;
-    my $end-row   = $ll.r;
-    for $start-row .. $end-row -> $rownum {
-        # convert the row into a new linear range in "A1" notation
-        my $start-cell = $ul.c ~ $rownum.Str;
-        my $end-cell   = $ur.c ~ $rownum.Str;
+} # sub collect-book-data
 
-        my @bcells = $start-cell, $end-cell;
-        my @a1 = split-linear @bcells, :$debug;
-        @A1.append: @a1; # flattens and adds the individual A1 names to the array
+sub get-wb-parsers-array($v) is export {
+    my $t = $v.^name; # expect Perl5 Array
+    my @a;
+    my $val = $v // '';
+
+    if $t ~~ /Array/ {
+        if $val {
+           for $val -> $v {
+               my $t = $v.^name; # expect Perl5 Hash
+               my $ne = $v.elems;
+               note "DEBUG: element of parsers array is type: '$t'";
+               note "       it has $ne element(s)";
+               my $V = $v // '';
+               @a.push: $V;
+           }
+        }
+        else {
+            note "array is empty or undefined";
+        }
+        return @a;
+    }
+    die "FATAL: Unexpected non-array type '$t'";
+} # sub get-wb-parsers-array
+
+sub get-wb-sheet-hash($v) is export {
+    my $t = $v.^name; # expect Perl5 Hash
+    my %h;
+    my $val = $v // '';
+
+    if $t ~~ /Hash/ {
+        if $val {
+           for $val.kv -> $k, $v {
+               %h{$k} = $v;
+           }
+        }
+        return %h;
+    }
+    die "FATAL: Unexpected non-hash type '$t'";
+} # sub get-wb-sheet-hash
+
+#| Given the sheet's original index, i, the ith hash
+#| from Spreadsheet::Read and a Sheet object, collect
+#| the data for the sheet.
+sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) is export {
+    constant %known-keys = [
+        # single-value attributes
+        active   => 0,
+        indx     => 0,
+        label    => 0,
+        maxcol   => 0,
+        maxrow   => 0,
+        mincol   => 0,
+        minrow   => 0,
+        parser   => 0,
+        # other attributes
+        attr     => 0, # array
+        merged   => 0, # array
+        cell     => 0, # M x N array
+    ];
+
+    my %keys-seen = %known-keys;
+
+    # Since we can't ensure the 'cell' arrays
+    # are read before the 'attr' arrays, we
+    # save its value here and read it after
+    # all other keys are seen.
+    my $attr = 0;
+    for %h.kv -> $k, $v {
+        if $k ~~ /^ (<[A..Z]>+) (<[1..9]> <[0..9]>?) $/ {
+            # check for and handle Excel colrow ids
+            $s.add-colrow-hash: $k, $v;
+            next;
+        }
+
+        note "WARNING: Unknown key '$k' in spreadsheet data" unless %known-keys{$k}:exists;
+
+        if $k eq 'active' {
+            ++%keys-seen{$k};
+            $s.active = $v;
+        }
+        elsif $k eq 'attr' {
+            # a 2x2 array of various types
+            ++%keys-seen{$k};
+            # save the value for later handling
+            $attr = $v;
+            next;
+
+            my ($t, $vv, $ne) = get-typ-and-val $v;
+            # this SHOULD be an array OR undef
+            say "DEBUG dumping type $t with $ne elements";
+            # col first
+            my $j = -1;
+
+            my $a = $vv;
+            if $t !~~ /Array|Hash/ {
+               die "Unexpected type $t";
+            }
+            if $t ~~ /Array/ {
+                dump-array $a, :$debug;
+                say "DEBUG: early exit";exit;
+            }
+
+            for $a -> $b {
+                ++$j;
+                ($t, $vv, $ne) = get-typ-and-val $b;
+                say "    dumping type $t with $ne elements";
+
+                my $aa = $a // '';
+                $t = $aa.^name;
+                if $t !~~ /Hash|Str|Any|Array/ {
+                    note "unexpected attr type $t";
+                    say "DEBUG early exit";exit;
+                }
+                else {
+                    say "    got type: $t";
+                }
+                if $t ~~ /Str/ {
+                    say "    gisting string at col $j:";
+                    say $aa.gist;
+                    next;
+                }
+
+                my @a = @($a) // [];
+                my $n = @a.elems;
+                say "  array $j consisting of $n hash elements";
+                my $i = -1;
+                for @a -> $b {
+                    ++$i;
+                    $t = $b.^name;
+                    if $t !~~ /Hash|Str|Any|Array/ {
+                        note "unexpected attr type $t";
+                        say "DEBUG early exit";exit;
+                    }
+                    else {
+                        say "    got type: $t";
+                    }
+
+                    my $c = $b // '';
+                    $t = $c.^name;
+                    if $t ~~ /Array/ {
+                        say "    gisting array at $i,$j:";
+                    }
+                    elsif $t ~~ /Str/ {
+                        say "    gisting string at $i,$j:";
+                        say $c.gist;
+                        next;
+                    }
+                    elsif $t ~~ /Hash/ {
+                        say "    gisting hash at $i,$j:";
+                        say $c.gist;
+                        next;
+                    }
+                    else {
+                        note "unexpected attr type $t";
+                        say "DEBUG early exit 2";exit;
+                    }
+
+                    my @c = @($c);
+                    for @c -> $d {
+                        $t = $d.^name;
+                        say "      \$d element type: $t":
+                        my $e = $d // '';
+                        $t = $e.^name;
+                        if $t ~~ /Hash/ {
+                            my %h = %($e) // %();
+                            for %h.keys.sort -> $k {
+                                my $v = %h{$k};
+                                say "      '$k' => '$v'";
+                            }
+                        }
+                        elsif $t ~~ /Hash/ {
+                            my %h = %($e) // %();
+                            for %h.keys.sort -> $k {
+                                my $v = %h{$k};
+                                say "      '$k' => '$v'";
+                            }
+                        }
+                    }
+                    #print "    '$val'";
+                }
+                say();
+            }
+
+            $s.attr = $v;
+            #say $v.raku;
+            say "DEBUG early exit";exit;
+        }
+        elsif $k eq 'cell' {
+            ++%keys-seen{$k};
+            # a 2x2 aray
+            # the arrays here will be transformed to this module's row/col array
+            $s.add-cell-data: $v, :$debug;
+        }
+        elsif $k eq 'indx' {
+            ++%keys-seen{$k};
+            $s.indx = $v;
+        }
+        elsif $k eq 'label' {
+            ++%keys-seen{$k};
+            $s.label = $v;
+        }
+        elsif $k eq 'maxcol' {
+            ++%keys-seen{$k};
+            $s.maxcol = $v;
+        }
+        elsif $k eq 'maxrow' {
+            ++%keys-seen{$k};
+            $s.maxrow = $v;
+        }
+        elsif $k eq 'merged' {
+            # an array
+            ++%keys-seen{$k};
+            $s.merged = $v;
+        }
+        elsif $k eq 'mincol' {
+            ++%keys-seen{$k};
+            $s.mincol = $v;
+        }
+        elsif $k eq 'minrow' {
+            ++%keys-seen{$k};
+            $s.minrow = $v;
+        }
+        elsif $k eq 'parser' {
+            ++%keys-seen{$k};
+            $s.parser = $v;
+        }
     }
 
-    note "DEBUG: In sub split-rectangular with output cells: @A1[]" if $debug;
+    # now we add the 'attr' data if it's available
+    $s.add-cell-attrs($attr, :$debug) if $attr;
 
-    return @A1;
-
-} # end of: sub split-rectangular
-
-sub split-range(@cells, :$debug --> Array) is export {
-    # Given a linear or rectangular range of "A1" cells,
-    # split them into individual cells that make up the
-    # entire range.
-
-    if @cells.elems == 2 {
-       return split-linear @cells, :$debug;
-    }
-    else {
-       return split-rectangular @cells, :$debug;
-    }
-
-} # end of: sub split-range
-
-
-##### Functions ported from Excel::Writer::XLSX
-###############################################################################
-#
-# xl_rowcol_to_cell($row, $col, $row_absolute, $col_absolute)
-#
-sub xl-rowcol-to-cell($row is copy,
-                      $col,
-                      $row-abs is copy = 0,
-                      $col-abs is copy = 0;
-                     ) is export {
-
-    ++$row;  # Change from 0-indexed to 1 indexed.
-    $row-abs = $row-abs ?? '$' !! '';
-    $col-abs = $col-abs ?? '$' !! '';
-
-    my $col-str = xl-col-to-name($col, $col-abs);
-
-    # lowercase it
-    return lc ($col-str ~ $row-abs ~ $row);
-
-    =begin comment
-    # original
-    my $row     = $_[0] + 1;          # Change from 0-indexed to 1 indexed.
-    my $col     = $_[1];
-    my $row_abs = $_[2] ? '$' : '';
-    my $col_abs = $_[3] ? '$' : '';
-
-    my $col_str = xl_col_to_name( $col, $col_abs );
-
-    return $col_str . $row_abs . $row;
-    =end comment
-
-} # end of: sub xl-rowcol-to-cell
-
-###############################################################################
-#
-# xl_cell_to_rowcol($string)
-#
-# Returns: ($row, $col, $row_absolute, $col_absolute)
-#
-# The $row_absolute and $col_absolute parameters aren't documented
-# because they mainly used internally and aren't very useful to the
-# user.
-#
-sub xl-cell-to-rowcol($cell is copy, :$debug) is export {
-
-    return (0, 0, 0, 0) unless $cell;
-    note "DEBUG: input A1 \$cell = '$cell'" if 0 and $debug;
-
-    # ensure we handle uppercase internally
-    $cell .= uc;
-
-    $cell ~~ /^ ('$'?) (<[A..Z]>**1..3) ('$'?) (\d+) /;
-
-    my $col-abs = defined $0 ?? 1 !! 0;
-    my $col     = ~$1;
-    my $row-abs = defined $2 ?? 1 !! 0;
-    my $row     = ~$3;
-
-    # Convert base26 column string to number
-    # All your Base are belong to us.
-    my @chars = $col.comb;
-    my $expn = 0;
-    $col = 0;
-
-    while @chars {
-        my $char = @chars.pop;    # LS char first
-        $col += ( ord( $char ) - ord( 'A' ) + 1 ) * ( 26**$expn );
-        ++$expn;
+    # First check our assumptions are correct: The array should be
+    # rectangular.
+    # TODO or should that be an option?
+    my $maxcol = 0;
+    my $i = -1;
+    my $err = 0;
+    my $warn = 0;
+    for $s.row -> $r {
+        ++$i;
+        my $nc = $r.cell.elems;
+        $maxcol = $nc if $i == 0;
+        if $nc != $maxcol {
+            ++$warn;
+            say "WARNING: row $i has $nc elements but \$maxcol is $maxcol elements" if 0 and $debug;
+        }
     }
 
-    # Convert 1-index to zero-index
-    --$row;
-    --$col;
-
-    return $row, $col, $row-abs, $col-abs;
-
-    =begin comment
-    # original
-    my $cell = shift;
-
-    return ( 0, 0, 0, 0 ) unless $cell;
-
-    $cell =~ /(\$?)([A-Z]{1,3})(\$?)(\d+)/;
-
-    my $col_abs = $1 eq "" ? 0 : 1;
-    my $col     = $2;
-    my $row_abs = $3 eq "" ? 0 : 1;
-    my $row     = $4;
-
-    # Convert base26 column string to number
-    # All your Base are belong to us.
-    my @chars = split //, $col;
-    my $expn = 0;
-    $col = 0;
-
-    while ( @chars ) {
-        my $char = pop( @chars );    # LS char first
-        $col += ( ord( $char ) - ord( 'A' ) + 1 ) * ( 26**$expn );
-        $expn++;
+    if 0 and $debug {
+        say "DEBUG: early exit";
+        exit;
     }
 
-    # Convert 1-index to zero-index
-    $row--;
-    $col--;
+} # sub collect-sheet-data
 
-    return $row, $col, $row_abs, $col_abs;
-    =end comment
+#| Given a cell array from Spreadsheet::Read and a
+#| Sheet object, collect the data for the sheet. In
+#| the process, convert the data into rows of cells
+#| with zero-based indexing.
+sub collect-cell-data($cell, Sheet :$s!, :$debug) is export {
+} # sub collect-cell-data
 
-} # end of sub: sub xl-cell-to-rowcol
-
-###############################################################################
-#
-# xl_col_to_name($col, $col_absolute)
-#
-sub xl-col-to-name($col is copy, $col-abs is copy) {
-
-    $col-abs    = $col-abs ?? '$' !! '';
-    my $col-str = '';
-
-    # Change from 0-indexed to 1-indexed.
-    ++$col;
-
-    while $col {
-
-        # Set remainder from 1 .. 26
-        my $remainder = $col % 26 || 26;
-
-        # Convert the $remainder to a character. C-ishly.
-        my $col-letter = chr( ord( 'A' ) + $remainder - 1 );
-
-        # Accumulate the column letters, right to left.
-        $col-str = $col-letter ~ $col-str;
-
-        # Get the next order of magnitude.
-        $col = Int( ( $col - 1 ) div 26 );
+sub get-typ-and-val($v, :$debug) is export {
+    # Determines the type of $v, then converts
+    # $v to either a string with value 'undef'
+    # or retains its value.
+    my $t = $v.^name;
+    my $vv = $v // 'undef';
+    $t = $vv.^name;
+    my $ne = $vv.elems;
+    if $t !~~ /Hash|Str|Int|Num|Array/ {
+        note "unexpected attr type $t";
+        note "DEBUG early exit";
+        die "FATAL";
     }
+    return ($t, $vv, $ne);
+} # sub get-typ-and-val
 
-    return $col-abs ~ $col-str;
+sub colrow2cell($a1-id, :$debug) is export {
+    # Given an Excel A1 style colrow id, transform it to zero-based
+    # row/col form.
+    my ($i, $j);
 
-    =begin comment
-    # original
-    my $col     = $_[0];
-    my $col_abs = $_[1] ? '$' : '';
-    my $col_str = '';
 
-    # Change from 0-indexed to 1 indexed.
-    $col++;
-
-    while ( $col ) {
-
-        # Set remainder from 1 .. 26
-        my $remainder = $col % 26 || 26;
-
-        # Convert the $remainder to a character. C-ishly.
-        my $col_letter = chr( ord( 'A' ) + $remainder - 1 );
-
-        # Accumulate the column letters, right to left.
-        $col_str = $col_letter . $col_str;
-
-        # Get the next order of magnitude.
-        $col = int( ( $col - 1 ) / 26 );
-    }
-
-    return $col_abs . $col_str;
-    =end comment
-
-} # end of: sub xl-col-to-name
+    return $i, $j;
+} # sub colrow2cell
