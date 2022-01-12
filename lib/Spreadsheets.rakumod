@@ -1,5 +1,7 @@
 unit class Spreadsheets;
 
+=finish
+
 use Spreadsheets::Classes;
 use Spreadsheets::XLSX-Utils;
 

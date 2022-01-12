@@ -50,15 +50,13 @@ for @*ARGS {
 
 my $ifil = @f[$n];
 
-#==============================================
-# RESTRICTED SCOPE FOR SELECTED PERL MODULE USE
-#==============================================
-{
-
-use Spreadsheet::Read:from<Perl5>;
+#use Spreadsheet::Read:from<Perl5>;
 
 #my $c = Spreadsheets::Classes::WorkbookSet.new;
-my $c = WorkbookSet.new;
+#my $c = WorkbookSet.new;
+
+=finish
+
 $c.read: :file($ifil), :$debug;
 if $debug {
     $c.dump;
@@ -70,7 +68,6 @@ if $sheet > 1 and $ifil ~~ /:i csv/ {
     exit;
 }
 
-}
 
 =finish
 
@@ -130,8 +127,3 @@ exit;
 say "Dumping hash in \$book[1]:";
 dump-hash %h;
 
-
-} # END SCOPE
-#==================================================
-# END RESTRICTED SCOPE FOR SELECTED PERL MODULE USE
-#==================================================
