@@ -1,5 +1,8 @@
 unit class Top;
 
+
+=finish
+
 use Top::Class;
 
 has Bar $.bar;

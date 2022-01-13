@@ -1,6 +1,7 @@
 unit module Top::Class;
 
-class Foo {...};
+class Foo {...}
+class Baz {...}
 class Bar is export {
     has Foo $.foo;
     submethod TWEAK {
@@ -9,4 +10,7 @@ class Bar is export {
 }
 class Foo is export {
     has $.id = 'Foo';
+}
+class Baz is export {
+    has $.id = 'Baz';
 }

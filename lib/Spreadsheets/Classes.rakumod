@@ -1,188 +1,6 @@
 unit module Spreadsheets::Classes;
 
-class WorkbookSet {...}
-class Sheet {...}
-
-class Workbook is export {
-    # keys in the meta hash (book[0])
-    #   with string values
-    has $.quote   is rw = ''; # used for csv
-    has $.sepchar is rw = ''; # used for csv
-    has $.error   is rw = '';
-    has $.sheets  is rw;      # number of sheets
-
-    has $.parser  is rw;      # name of parser used
-    has $.type    is rw;      # of the parser used: xlsx, xls, csv, etc.
-    has $.version is rw;      # of the parser used
-    #   with array or hash values
-    has %.sheet   is rw;      # key: sheet name, value: index 1..N of N sheets
-
-    has $.no-trim is rw = 0; # default behavior is to trim trailing empty cells from each row
-
-    # the following appears to be redundant and will be ignored on read iff it
-    # only contains one element
-    #has @.parsers is rw;      # array of parser pairs hashes, keys: name, type, version
-
-    # convenience attrs
-    has Sheet @.Sheet; # array of Sheet objects
-    # input file attrs:
-    has $.basename = '';
-    has $.path     = '';
-
-=begin comment
-    #| The output file name must end in '.xlsx' or '.csv' and
-    #| it must not exist (unless the 'force' option is true).
-    method write(:$file!, :$use-template, :$force, :$debug) {
-        my $tmpl = $use-template ?? $use-template !! 0;
-        my $typ;
-        my $ok = 0;
-        if  $file ~~ /'.' (\S+) $/ {
-            $typ = ~$0;
-            $typ .= lc;
-            ++$ok if $typ eq 'xlsx';
-            ++$ok if $typ eq 'csv';
-        }
-        if not $ok {
-            my $valid-types = "'xlsx' or 'csv'";
-            note "FATAL: Unable to write spreadsheet files without a valid extension of: $valid-types";
-            exit;
-        }
-        # templates aren't usable without an xlsx output file
-        # ensure the desired template is available
-        if $use-template and $typ eq 'csv' {
-            note "NOTE: Templates cannot be used with 'csv' output files.";
-        }
-        elsif $use-template {
-            note "FATAL: Unable to find spreadsheet template '$tmpl'";
-            exit;
-        }
-
-        if $file.IO.e {
-            if $force {
-
-            }
-            else {
-            }
-        }
-
-        if $typ eq 'xlsx' {
-        }
-        elsif $typ eq 'csv' {
-        }
-        else {
-            note "FATAL: Unable to write spreadsheet files with an extension of '$typ'.";
-            exit;
-        }
-
-        #use Excel::Writer::XLSX:from<Perl5>;
-    }
-
-    method dump(:$index!, :$debug) {
-        say "DEBUG: dumping workbook index $index, file basename: {$.basename}";
-        say "  == \%.sheet hash:";
-        for %.sheet.keys.sort -> $k {
-            my $v = %.sheet{$k};
-            say "    '$k' => '$v'";
-        }
-        say "DEBUG: dumping sheet row/cols";
-        my $i = 0;
-        for @.Sheet -> $s {
-            ++$i;
-            say "=== sheet $i...";
-            #$s.dump;
-            $s.dump-csv;
-        }
-
-    }
-
-    method copy {
-        # returns a copy of this Workbook object
-    }
-=end comment
-
-} # end of class Workbook
-
-class WorkbookSet is export {
-    use Spreadsheet::Read:from<Perl5>;
-
-=begin comment
-
-    #| an array of "immutable" input Workbook objects that can be written again under a new name
-    has Workbook @.sources;
-    #   use "@.sources.tail" for the last object, use "@.sources.end" for the last index number
-
-    #| a hash of info on files read or written and their associated Workbook locations
-    has %.files;
-
-    #| an array of Workbook objects capable of being written
-    has Workbook @.products;
-    #   use "@.products.tail" for the last object, use "@.products.end" for the last index number
-
-    method dump(:$debug) {
-        my $ns = @.sources.elems;
-        my $np = @.products.elems;
-        my $s = $ns > 1 ?? 's' !! '';
-        say "DEBUG: dumping WorkbookSet containing:";
-        say "          $ns source workbook$s...";
-        for @.sources.kv -> $i, $wb {
-            $wb.dump: :index($i), :$debug;
-        }
-        $s = $np > 1 ?? 's' !! '';
-        if $np {
-            say "          and $np product workbook$s...";
-        }
-        else {
-            say "          and no product workbooks.";
-        }
-    }
-
-    method write(:$file!, Workbook :$template, :$force, :$debug) {
-        # for now only xlsx files can be written
-        if $file !~~ /'.xlsx'$/ {
-            note "FATAL: Output files MUST be xlsx format with '.xlsx' file extension.";
-            note "       You chose '$file'";
-            exit;
-        }
-        # make sure the file isn't already in the hash
-        my $basename = $file.IO.basename;
-        my $path     = $file.IO.absolute;
-        if %.files{$basename}:exists {
-            note "WARNING: File '$file' has already been read or written.";
-            return;
-        }
-        if !$path.IO.f {
-            note "FATAL: File '$file' cannot be read.";
-            exit;
-        }
-    }
-
-    method read(:$file!, :$debug) {
-        # make sure the file isn't already in the hash
-        my $basename = $file.IO.basename;
-        my $path     = $file.IO.absolute;
-        if %.files{$basename}:exists {
-            note "WARNING: File '$file' has already been read or written.";
-            return;
-        }
-        if !$path.IO.f {
-            note "FATAL: File '$file' cannot be read.";
-            exit;
-        }
-
-        my $wb = Workbook.new: :$basename, :$path;
-        @.sources.push: $wb;
-
-        # figure out the correct workbook object to use
-        %.files{$basename}<path>         = $path;
-        # use "@.sources.tail" for the last object, use "@.sources.end" for the last index number
-        %.files{$basename}<source-index> = @.sources.end;
-        %.files{$basename}<written> = 1;
-
-        collect-file-data(:$path, :$wb, :$debug);
-    }
-=end comment
-
-} # class WorkbookSet
+use Text::Utils :normalize-string;
 
 class Cell is export {
     # a Cell knows its array position
@@ -205,7 +23,7 @@ class Cell is export {
                           !! Cell.new: :i($.i), :j($.j), :value($.value), :fmt(%.fmt), :format($.format);
         return $c;
     }
-}
+} # end of class Row
 
 class Row is export {
     has Cell @.cell; # an array of Cell objects
@@ -221,7 +39,7 @@ class Row is export {
     method copy {
         # returns a copy of this Row object
     }
-}
+} # end of class Row
 
 class Sheet is export {
     has Row @.row;      # an array of Row objects (each Row object has an array of Cell objects)
@@ -513,4 +331,187 @@ class Sheet is export {
     method copy {
         # returns a copy of this Sheet object
     }
-}
+
+} # end of class Sheet
+
+class Workbook is export {
+    # keys in the meta hash (book[0])
+    #   with string values
+    has $.quote   is rw = ''; # used for csv
+    has $.sepchar is rw = ''; # used for csv
+    has $.error   is rw = '';
+    has $.sheets  is rw;      # number of sheets
+
+    has $.parser  is rw;      # name of parser used
+    has $.type    is rw;      # of the parser used: xlsx, xls, csv, etc.
+    has $.version is rw;      # of the parser used
+    #   with array or hash values
+    has %.sheet   is rw;      # key: sheet name, value: index 1..N of N sheets
+
+    has $.no-trim is rw = 0; # default behavior is to trim trailing empty cells from each row
+
+    # the following appears to be redundant and will be ignored on read iff it
+    # only contains one element
+    #has @.parsers is rw;      # array of parser pairs hashes, keys: name, type, version
+
+    # convenience attrs
+    has Sheet @.Sheet; # array of Sheet objects
+    # input file attrs:
+    has $.basename = '';
+    has $.path     = '';
+
+=begin comment
+    #| The output file name must end in '.xlsx' or '.csv' and
+    #| it must not exist (unless the 'force' option is true).
+    method write(:$file!, :$use-template, :$force, :$debug) {
+        my $tmpl = $use-template ?? $use-template !! 0;
+        my $typ;
+        my $ok = 0;
+        if  $file ~~ /'.' (\S+) $/ {
+            $typ = ~$0;
+            $typ .= lc;
+            ++$ok if $typ eq 'xlsx';
+            ++$ok if $typ eq 'csv';
+        }
+        if not $ok {
+            my $valid-types = "'xlsx' or 'csv'";
+            note "FATAL: Unable to write spreadsheet files without a valid extension of: $valid-types";
+            exit;
+        }
+        # templates aren't usable without an xlsx output file
+        # ensure the desired template is available
+        if $use-template and $typ eq 'csv' {
+            note "NOTE: Templates cannot be used with 'csv' output files.";
+        }
+        elsif $use-template {
+            note "FATAL: Unable to find spreadsheet template '$tmpl'";
+            exit;
+        }
+
+        if $file.IO.e {
+            if $force {
+
+            }
+            else {
+            }
+        }
+
+        if $typ eq 'xlsx' {
+        }
+        elsif $typ eq 'csv' {
+        }
+        else {
+            note "FATAL: Unable to write spreadsheet files with an extension of '$typ'.";
+            exit;
+        }
+
+        #use Excel::Writer::XLSX:from<Perl5>;
+    }
+
+    method dump(:$index!, :$debug) {
+        say "DEBUG: dumping workbook index $index, file basename: {$.basename}";
+        say "  == \%.sheet hash:";
+        for %.sheet.keys.sort -> $k {
+            my $v = %.sheet{$k};
+            say "    '$k' => '$v'";
+        }
+        say "DEBUG: dumping sheet row/cols";
+        my $i = 0;
+        for @.Sheet -> $s {
+            ++$i;
+            say "=== sheet $i...";
+            #$s.dump;
+            $s.dump-csv;
+        }
+
+    }
+
+    method copy {
+        # returns a copy of this Workbook object
+    }
+=end comment
+
+} # end of class Workbook
+
+
+class WorkbookSet is export {
+    use Spreadsheet::Read:from<Perl5>;
+
+=begin comment
+
+    #| an array of "immutable" input Workbook objects that can be written again under a new name
+    has Workbook @.sources;
+    #   use "@.sources.tail" for the last object, use "@.sources.end" for the last index number
+
+    #| a hash of info on files read or written and their associated Workbook locations
+    has %.files;
+
+    #| an array of Workbook objects capable of being written
+    has Workbook @.products;
+    #   use "@.products.tail" for the last object, use "@.products.end" for the last index number
+
+    method dump(:$debug) {
+        my $ns = @.sources.elems;
+        my $np = @.products.elems;
+        my $s = $ns > 1 ?? 's' !! '';
+        say "DEBUG: dumping WorkbookSet containing:";
+        say "          $ns source workbook$s...";
+        for @.sources.kv -> $i, $wb {
+            $wb.dump: :index($i), :$debug;
+        }
+        $s = $np > 1 ?? 's' !! '';
+        if $np {
+            say "          and $np product workbook$s...";
+        }
+        else {
+            say "          and no product workbooks.";
+        }
+    }
+
+    method write(:$file!, Workbook :$template, :$force, :$debug) {
+        # for now only xlsx files can be written
+        if $file !~~ /'.xlsx'$/ {
+            note "FATAL: Output files MUST be xlsx format with '.xlsx' file extension.";
+            note "       You chose '$file'";
+            exit;
+        }
+        # make sure the file isn't already in the hash
+        my $basename = $file.IO.basename;
+        my $path     = $file.IO.absolute;
+        if %.files{$basename}:exists {
+            note "WARNING: File '$file' has already been read or written.";
+            return;
+        }
+        if !$path.IO.f {
+            note "FATAL: File '$file' cannot be read.";
+            exit;
+        }
+    }
+
+    method read(:$file!, :$debug) {
+        # make sure the file isn't already in the hash
+        my $basename = $file.IO.basename;
+        my $path     = $file.IO.absolute;
+        if %.files{$basename}:exists {
+            note "WARNING: File '$file' has already been read or written.";
+            return;
+        }
+        if !$path.IO.f {
+            note "FATAL: File '$file' cannot be read.";
+            exit;
+        }
+
+        my $wb = Workbook.new: :$basename, :$path;
+        @.sources.push: $wb;
+
+        # figure out the correct workbook object to use
+        %.files{$basename}<path>         = $path;
+        # use "@.sources.tail" for the last object, use "@.sources.end" for the last index number
+        %.files{$basename}<source-index> = @.sources.end;
+        %.files{$basename}<written> = 1;
+
+        collect-file-data(:$path, :$wb, :$debug);
+    }
+=end comment
+
+} # class WorkbookSet
