@@ -8,7 +8,6 @@
   "depends": [
     "JSON::Hjson",
     "Text::Utils",
-    "Font::AFM:ver<1.24.5+>",
     "Inline::Perl5"
   ],
   "description": "A universal, multiple spreadsheet reader/writer",
