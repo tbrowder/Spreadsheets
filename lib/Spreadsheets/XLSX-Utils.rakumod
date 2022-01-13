@@ -1,4 +1,4 @@
-unit module Exec::Utility;
+unit module Spreadsheets::XLSX-Utils;
 
 #### SUBROUTINES ####
 

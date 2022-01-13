@@ -3,7 +3,8 @@
 use Text::Utils :normalize-string;
 
 use lib <../lib>;
-use Spreadsheets::Classes;
+
+use Spreadsheets::Utils;
 
 my @f =
 "../t/data/sample-security-sales.xlsx",
@@ -126,4 +127,3 @@ exit;
 %h = $book[1];
 say "Dumping hash in \$book[1]:";
 dump-hash %h;
-
