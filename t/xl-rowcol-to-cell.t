@@ -5,9 +5,8 @@
 # reverse ('(c)'), September 2010, John McNamara, jmcnamara@cpan.org
 #
 
-use Spreadsheets;
-
 use Test;
+use Spreadsheets::XLSX-Utils;
 
 plan 4;
 
