@@ -23,7 +23,7 @@ class Cell is export {
                           !! Cell.new: :i($.i), :j($.j), :value($.value), :fmt(%.fmt), :format($.format);
         return $c;
     }
-} # end of class Row
+} # end of class Cell
 
 class Row is export {
     has Cell @.cell; # an array of Cell objects
