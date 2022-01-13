@@ -54,9 +54,9 @@ my $ifil = @f[$n];
 #use Spreadsheet::Read:from<Perl5>;
 
 #my $c = Spreadsheets::Classes::WorkbookSet.new;
-#my $c = WorkbookSet.new;
+my $c = WorkbookSet.new;
 
-=finish
+#=finish
 
 $c.read: :file($ifil), :$debug;
 if $debug {
