@@ -10,7 +10,7 @@ class Cell is export {
     #| holds a formatting object generated and used by Excel::Writer::XLSX
     has $.format;
 
-    has $.value is rw;
+    has $.value is rw = '';
     has $.formatted-value; # as reported by Spreadsheet::Read
 
     #| these data come from Spreadsheet::Read's 'attr' key's value
@@ -26,13 +26,24 @@ class Cell is export {
 } # end of class Cell
 
 class Row is export {
-    has Cell @.cell; # an array of Cell objects
+    has Cell @.cell = (); # an array of Cell objects
 
     method trim(:$debug) {
-        my $v = @.cell.tail.value;
-        while @.cell.elems and ($v ~~ Any:U or $v eq '') {
+        while @.cell.elems {
+            die "FATAL: cell object is NOT a Cell: {@.cell.raku}" if @.cell.tail !~~ Cell;
+            =begin comment
+            if not @.cell.tail.defined {
+                note "DEBUG: cell tail is undefind, @.cell.raku: |{@.cell.raku}|";
+                last
+                @.cell.pop;
+            }
+            @.cell.pop and last if not @.cell.tail.defined;
+            =end comment
+            
+            #note "DEBUG cell.tail.defined? {@.cell.tail.defined}";
+            my $v = @.cell.tail.value // '';
+            last if $v;
             @.cell.pop;
-            $v = @.cell.tail.value;
         }
     }
 
@@ -304,6 +315,7 @@ class Sheet is export {
         if not $.no-trim {
             ; # delete empty trailing empty cells
             for self.row -> $row {
+                #note "DEBUG: gisting row: |{$row.gist}|";
                 $row.trim;
             }
         }
@@ -945,6 +957,9 @@ sub collect-sheet-data(%h, :$index, Sheet :$s!, :$debug) is export {
         elsif $k eq 'parser' {
             ++%keys-seen{$k};
             $s.parser = $v;
+        }
+        else {
+            note "WARNING: Unknown key '$k'";
         }
     }
 

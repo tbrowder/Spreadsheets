@@ -6,8 +6,7 @@ Tasks for initial release:
         # take advantage of roles and subclassing!!!
         Spreadsheets.rakumod # includes subs for handling the generic code
         Spreadsheets/
-            Roles.rakumod
-            Classes.rakumod
+            Utils.rakumod      # classes and subs for handling spreadsheets including the generic code
             XLSX-Utils.rakumod # code ported from Perl module ?
             # possible other modules with code ported from Perl modules
 

@@ -12,12 +12,13 @@ my @f =
 "../t/data/sample-security-sales.ods",
 "../t/data/sample-security-sales.csv",
 "../t/data/mytest.csv",
+"../t/data/senior-center-schedule.xlsx",
 ;
 
 my $sheet = 0;
 if !@*ARGS.elems {
     say qq:to/HERE/;
-    Usage: {$*PROGRAM.basename} 1|2|3|4|5  [s1 s2] [debug]
+    Usage: {$*PROGRAM.basename} 1|2|3|4|5|6  [s1 s2] [debug]
 
     Uses the Perl module Spreadsheet::Read and
     dumps the data from the selected file number:
@@ -40,7 +41,7 @@ for @*ARGS {
     when /s(1|2)/ {
         $sheet = +$0;
     }
-    when /(1|2|3|4|5)/ {
+    when /(1|2|3|4|5|6)/ {
         $n = +$0 - 1
     }
     default {
