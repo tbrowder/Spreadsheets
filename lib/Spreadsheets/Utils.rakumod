@@ -8,17 +8,17 @@ class Cell is export {
     has $.j is rw; # col index, zero-based
 
     #| holds a formatting object generated and used by Excel::Writer::XLSX
-    has $.format;
+    has $.format is rw = '';
 
     has $.value is rw = '';
-    has $.formatted-value; # as reported by Spreadsheet::Read
+    has $.formatted-value is rw; # as reported by Spreadsheet::Read
 
     #| these data come from Spreadsheet::Read's 'attr' key's value
     #| which is an array of arrays of hashes
-    has %.fmt;
+    has %.fmt is rw;
 
     method copy(:$no-value, :$debug) {
-        # returns a copy of this Cell object
+        #! returns a copy of this Cell object
         my $c = $no-value ?? Cell.new: :i($.i), :j($.j), :fmt(%.fmt), :format($.format)
                           !! Cell.new: :i($.i), :j($.j), :value($.value), :fmt(%.fmt), :format($.format);
         return $c;
@@ -26,7 +26,7 @@ class Cell is export {
 } # end of class Cell
 
 class Row is export {
-    has Cell @.cell = (); # an array of Cell objects
+    has Cell @.cell; # an array of Cell objects
 
     method trim(:$debug) {
         while @.cell.elems {
@@ -66,7 +66,7 @@ class Sheet is export {
     has $.minrow is rw = 0;
     has $.parser is rw = '';
     # other attributes
-    #has @.attr   is rw; # array
+    has @.attr   is rw; # array
     has @.merged is rw; # array
 
     has $.no-trim is rw = 0;
@@ -87,7 +87,7 @@ class Sheet is export {
                 }
             }
             #say();
-            say "    <-- # $ncols columns";
+            say "    <-- # row $i, $ncols columns";
         }
     }
 
@@ -235,6 +235,7 @@ class Sheet is export {
     method add-cell-data(@cols, :$debug) {
 
         if 0 and $debug {
+        #if 1 {
             my $nr = @cols.elems;
             say "DEBUG: in sub add-cell-data, dumping raw input cell data for $nr cols";
             if 0 {
@@ -268,6 +269,7 @@ class Sheet is export {
         # First we'll make sure we can read the data.  We want
         # undefined cells to have empty values.  Keep track of max
         # number of cells in a row:
+        # TODO explain why col 0 is empty
         @cols.shift; # elim empty col
         my $max = 0;
         my $t = @cols.^name;
@@ -282,6 +284,7 @@ class Sheet is export {
             say "    reading col $j" if $debug;
             # it may be undef
             my @colrows = @($col); # // [];
+            # TODO explain why colrows 0 is empty
             @colrows.shift; # elim empty row cell
             my $nr = @colrows.elems;
             if @colrows ~~ Any:U {
@@ -310,6 +313,9 @@ class Sheet is export {
                 }
             }
         }
+
+        =begin comment
+        # DO NOT USE THIS CODE
         # TODO why does dump-csv add cells that shouldn't be there?
         # trim empty cells from each row
         if not $.no-trim {
@@ -319,6 +325,7 @@ class Sheet is export {
                 $row.trim;
             }
         }
+        =end comment
 
     }
 
@@ -478,7 +485,7 @@ class WorkbookSet is export {
     }
 
     method write(:$file!, Workbook :$template, :$force, :$debug) {
-        # for now only xlsx files can be written
+        #! for now only xlsx files can be written
         if $file !~~ /'.xlsx'$/ {
             note "FATAL: Output files MUST be xlsx format with '.xlsx' file extension.";
             note "       You chose '$file'";
@@ -498,7 +505,7 @@ class WorkbookSet is export {
     }
 
     method read(:$file!, :$debug) {
-        # make sure the file isn't already in the hash
+        #! make sure the file isn't already in the hash
         my $basename = $file.IO.basename;
         my $path     = $file.IO.absolute;
         if %.files{$basename}:exists {
@@ -617,7 +624,8 @@ sub collect-file-data(:$path, Workbook :$wb!, :$debug) is export {
     use Spreadsheet::Read:from<Perl5>;
 
     #my $pbook = ReadData $path, :attr, :clip, :strip(3); # array of hashes
-    my $pbook = Spreadsheet::Read::ReadData($path, 'attr' => 1); #, :clip, :strip(3); # array of hashes
+    #my $pbook = Spreadsheet::Read::ReadData($path, 'attr' => 1, 'clip' => 1, 'strip' => 3); # array of hashes
+    my $pbook = Spreadsheet::Read::ReadData($path, 'clip' => 1, 'strip' => 3); # array of hashes
 
     my $ne = $pbook.elems;
     say "\$book has $ne elements indexed from zero" if $debug;
