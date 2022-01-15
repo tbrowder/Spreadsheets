@@ -87,11 +87,12 @@ class Sheet is export {
                 }
             }
             #say();
-            say "    <-- # row $i, $ncols columns";
+            say "    <-- # sheet $.indx, row $i, $ncols columns";
         }
     }
 
     method dump {
+        say "dumping sheet $.indx";
         for @.row.kv -> $i, $row {
             say "  row $i";
             print "    ";
@@ -625,7 +626,8 @@ sub collect-file-data(:$path, Workbook :$wb!, :$debug) is export {
 
     #my $pbook = ReadData $path, :attr, :clip, :strip(3); # array of hashes
     #my $pbook = Spreadsheet::Read::ReadData($path, 'attr' => 1, 'clip' => 1, 'strip' => 3); # array of hashes
-    my $pbook = Spreadsheet::Read::ReadData($path, 'clip' => 1, 'strip' => 3); # array of hashes
+    #my $pbook = Spreadsheet::Read::ReadData($path, 'clip' => 1, 'strip' => 3); # array of hashes
+    my $pbook = Spreadsheet::Read::ReadData($path, 'clip' => 1, 'strip' => 3, 'debug' => 1); # array of hashes
 
     my $ne = $pbook.elems;
     say "\$book has $ne elements indexed from zero" if $debug;
