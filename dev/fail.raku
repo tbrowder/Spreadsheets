@@ -1,22 +1,22 @@
 #!/usr/bin/env raku
 
-
-my $na = 3;
-my $nb = 4;
-
-SHEET: for 0..^$na -> $a {
-    if $a == 1 {
-        die "WARNING: bad sheet $a, skipping it entirely"; # fail, recover at $a = 2
+# Simulating a spreadsheet sheet/cell reader:
+my $ns = 3; # number of sheets
+my $nc = 4; # number of cells per sheet
+SHEET: for 1..$ns -> $s {
+    if $s == 2 {
+        # a sheet failure, recover at $s = 3
+        die "WARNING: bad sheet $s, skipping it entirely";
         CATCH { default { say .Str; next SHEET; } }
     }
-    say "== sheet $a";
+    say "== sheet $s";
 
-    CELL: for 0..^$nb -> $b {
-        if $a == 2 and $b == 2 {
-            die "WARNING: sheet $a, bad cell $b"; # fail, recover at $b = 4
+    CELL: for 1..$nc -> $c {
+        if $s == 3 and $c == 3 {
+            # a cell failure, recover at $c = 4
+            die "WARNING: sheet $s, bad cell $c";
             CATCH { default { say .Str; next CELL; } }
         }
-        say "  == cell $b";
+        say "  == cell $c";
     }
 }
-
