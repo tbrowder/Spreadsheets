@@ -440,7 +440,12 @@ class Workbook is export {
             ++$i;
             say "=== sheet $i...";
             #$s.dump;
-            $s.dump-csv;
+            try {
+                $s.dump-csv;
+            }
+            if $! {
+                say "=== one or more failures while dumping sheet $i...";
+            }
         }
 
     }
