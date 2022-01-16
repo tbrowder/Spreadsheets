@@ -4,8 +4,6 @@
 my $na = 3;
 my $nb = 4;
 
-CATCH { when X::AdHoc { .resume } }
-
 SHEET: for 0..^$na -> $a {
     if $a == 1 {
         die "WARNING: bad sheet $a, skipping it entirely"; # fail, recover at $a = 2
